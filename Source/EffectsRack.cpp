@@ -652,7 +652,7 @@ void Rack::prepare(double rate, bool offline)
         for(int i=0;i<3;++i) {
             auto& slot=impl->slots[(size_t)i];
             const auto path=impl->state.state.getProperty(slotId(i,"IR")).toString();
-            if(path.isNotEmpty() && effectIndex(slot.choice->load())==8 && slot.on->load()>.5f) {
+            if(path.isNotEmpty() && effectIndex(slot.choice->load())==8 && slot.on->load()>.5f && impl->bypass->load()<.5f) {
                 auto* convolution=static_cast<Convolution*>(slot.engines[8].get());
                 if(!juce::File(path).existsAsFile() || !convolution->prepareFile(juce::File(path),rate))
                     throw std::runtime_error("The selected convolution IR is missing or unreadable");

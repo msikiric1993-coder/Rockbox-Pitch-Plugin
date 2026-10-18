@@ -58,10 +58,12 @@ Result render(const Request& request,std::atomic<float>& progress,const std::fun
             if(bitrate<=0)bitrate=metadata["format"]["bit_rate"].toString().getIntValue();
             if(bitrate<=0)throw std::runtime_error("Could not determine the source bitrate; choose FLAC/WAV/AIFF instead");
         }
+        const bool rackBypassed=(float)request.rack.getChildWithProperty("id","rackBypass").getProperty("value",0)>.5f;
         for(int slot=0;slot<3;++slot) {
             const auto on=request.rack.getChildWithProperty("id",tdEffects::slotId(slot,"on"));
             const auto unavailable=request.rack.getChildWithProperty("id",tdEffects::slotId(slot,"unavailable"));
-            if((float)on.getProperty("value",0)>.5f && ((float)unavailable.getProperty("value",0)>.5f || request.rack.hasProperty(tdEffects::slotId(slot,"missingEngine"))))
+            const int selected=tdEffects::effectIndex((float)request.rack.getChildWithProperty("id",tdEffects::slotId(slot,"effect")).getProperty("value",0));
+            if(!rackBypassed && (float)on.getProperty("value",0)>.5f && ((float)unavailable.getProperty("value",0)>.5f || !tdEffects::catalogue()[(size_t)selected].available || request.rack.hasProperty(tdEffects::slotId(slot,"missingEngine"))))
                 throw std::runtime_error("An enabled saved effect is unavailable. Replace or bypass it before rendering");
         }
         TDSpeedVSTAudioProcessor processor(2);tdEffects::restoreState(processor.apvts,request.rack);processor.prepareFileEffects(sr);
