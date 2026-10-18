@@ -3,6 +3,7 @@
 #include "PluginProcessor.h"
 #include "EffectsPanel.h"
 #include "UiScale.h"
+#include "FileRender.h"
 
 class TDSpeedLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -25,11 +26,21 @@ public:
     void setAdvanced(bool b){rackPanel.setAdvanced(b);}
     void refreshEffects(){rackPanel.refreshControls();}
     bool mixNotice() const {return !standalone && !mixExplained && (bool)processor.apvts.state.getProperty("rcMixNotice",false);}
-    int preferredHeight() const {return 420+(standalone?0:86)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
+    int preferredHeight() const {return 466+(standalone?0:86)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
     std::function<void()> sizeChanged;
 private:
     void timerCallback() override;
     void updateSize();
+    void chooseRenderSource();
+    void confirmFileRender(const juce::File&);
+    void chooseRenderDestination(tdFile::Request);
+    juce::TextButton renderButton{"Render slowed file"},cancelRender{"Cancel render"};
+    tdFile::DragButton showRender;
+    std::unique_ptr<juce::FileChooser> renderChooser;
+    std::unique_ptr<tdFile::Job> fileJob;
+    juce::File renderedFile;
+    juce::Label renderStatus;
+
     TDSpeedVSTAudioProcessor& processor;
     TDSpeedLookAndFeel theme;
     juce::TooltipWindow tooltips{this,600};

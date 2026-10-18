@@ -527,3 +527,26 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     auto* processor=new TDSpeedVSTAudioProcessor();tdEffects::setParameter(processor->apvts,"timingMode",1);return processor;
 }
+
+// A private processor is used by the file-render worker. No live history or
+// synchronization group is touched, and no full-song RAM allocation is needed.
+void TDSpeedVSTAudioProcessor::prepareFileEffects(double rate) {
+    fs=rate;masterGain.reset(fs,.02);masterGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(pMasterOutput->load()));
+    legacyMix.reset(fs,.02);legacyGain.reset(fs,.02);legacyWetGain.reset(fs,.02);
+    reverbWasOn=false;legacyFault=false;springVerb.prepare(fs,512);effects.prepare(fs,true);
+    prepareEffectControls();
+}
+void TDSpeedVSTAudioProcessor::processFileEffects(juce::AudioBuffer<float>& buffer) {
+    juce::ScopedNoDenormals noDenormals;prepareEffectControls();effects.beginBlock();
+    if(reverbWasOn && pEffectsBypass->load()<.5f) {
+        for(int n=0;n<buffer.getNumSamples();++n) {
+            float* ch[]{buffer.getWritePointer(0)+n,buffer.getWritePointer(1)+n};
+            const float l=*ch[0],r=*ch[1];springVerb.process(ch,2,1,1);
+            if(!std::isfinite(*ch[0]) || !std::isfinite(*ch[1]) || std::abs(*ch[0])>32 || std::abs(*ch[1])>32){legacyFault=true;*ch[0]=l;*ch[1]=r;continue;}
+            const float mix=legacyMix.getNextValue(),gain=legacyGain.getNextValue(),wet=legacyWetGain.getNextValue()*blockLegacyCalibration;
+            const float d=mix==1?0:std::cos(mix*juce::MathConstants<float>::halfPi),w=mix==0?0:wet*std::sin(mix*juce::MathConstants<float>::halfPi);
+            *ch[0]=mix==0 && gain==1?l:(l*d+*ch[0]*w)*gain;*ch[1]=mix==0 && gain==1?r:(r*d+*ch[1]*w)*gain;
+        }
+    }
+    effects.process(buffer,0,buffer.getNumSamples());finishOutput(buffer);
+}

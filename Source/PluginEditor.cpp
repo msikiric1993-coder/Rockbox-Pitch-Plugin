@@ -55,6 +55,14 @@ void TDSpeedLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
 TDSpeedVSTAudioProcessorEditor::TDSpeedVSTAudioProcessorEditor(TDSpeedVSTAudioProcessor& p):AudioProcessorEditor(&p),processor(p),rackPanel(p)
 {
     setLookAndFeel(&theme);setResizable(false,false);addAndMakeVisible(content);
+    for(auto* c:std::initializer_list<juce::Component*>{&renderButton,&cancelRender,&showRender,&renderStatus})content.addAndMakeVisible(c);
+    renderButton.onClick=[this]{chooseRenderSource();};
+    cancelRender.onClick=[this]{if(fileJob)fileJob->signalThreadShouldExit();};
+    showRender.onClick=[this]{if(!showRender.dragged && renderedFile.existsAsFile())renderedFile.revealToUser();};
+    cancelRender.setVisible(false);showRender.setVisible(false);
+    renderStatus.setText("Render a complete file at the chosen pitch and effects",juce::dontSendNotification);
+    renderStatus.setFont(juce::Font(11));
+
     for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus})content.addAndMakeVisible(c);
     timingMode.addItem("Listening",1);timingMode.addItem("Follow DAW",2);timingAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts,"timingMode",timingMode);
     timingMode.onChange=[this]{if(!processor.isDawMode())processor.leaveSyncGroup();timerCallback();};
@@ -95,6 +103,13 @@ void TDSpeedVSTAudioProcessorEditor::updateSize()
 }
 void TDSpeedVSTAudioProcessorEditor::timerCallback()
 {
+    if(fileJob) {
+        if(fileJob->done.load(std::memory_order_acquire)) {
+            const auto result=fileJob->result;fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);
+            if(result.error.isNotEmpty())renderStatus.setText(result.error,juce::dontSendNotification);
+            else {renderedFile=result.file;showRender.file=renderedFile;showRender.setVisible(true);renderStatus.setText("Ready / "+juce::String(result.duration,1)+" s / import into DAW; mute original and avoid applying pitch/effects twice",juce::dontSendNotification);}
+        } else renderStatus.setText("Rendering "+juce::String(100*fileJob->progress.load(),0)+"% / playback is unchanged",juce::dontSendNotification);
+    }
     if(!standalone){const auto* d=juce::Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds());if(d){const float fit=juce::jmin((d->userArea.getWidth()-32)/820.0f,(d->userArea.getHeight()-72)/(float)preferredHeight());const float scale=juce::jmin(uiSize.getSelectedId()==1?tdUi::automatic(d->userArea):requestedScale,fit);if(std::abs(scale-uiScale)>.001f){uiScale=scale;updateSize();}}}
     if(!standalone){
         auto groups=processor.availableSyncGroups();if(groups!=groupList){groupList=groups;joinGroup.clear(juce::dontSendNotification);joinGroup.addItem("Join group...",1);for(size_t i=0;i<groupList.size();++i)joinGroup.addItem(groupList[i].second,(int)i+2);}
@@ -138,5 +153,30 @@ void TDSpeedVSTAudioProcessorEditor::resized()
     reverbPanel={24,226+offset,772,44+(showRack?rackPanel.preferredHeight():0)};rackTab.setBounds(40,233+offset,200,30);effectsBypass.setBounds(620,233+offset,160,30);
     rackPanel.setBounds(32,270+offset,756,rackPanel.preferredHeight());
     const int y=reverbPanel.getBottom()+8;outputLabel.setBounds(40,y,100,32);output.setBounds(143,y,270,32);protect.setBounds(420,y,130,32);meter.setBounds(554,y,226,32);
+    renderButton.setBounds(40,y+142,160,28);cancelRender.setBounds(210,y+142,110,28);showRender.setBounds(210,y+142,160,28);renderStatus.setBounds(378,y+140,402,34);
     statusPanel={24,y+40,772,100};delayLabel.setBounds(40,statusPanel.getY()+10,550,30);resetButton.setBounds(612,statusPanel.getY()+12,164,28);
+}
+
+void TDSpeedVSTAudioProcessorEditor::chooseRenderSource() {
+    if(fileJob)return;
+    renderChooser=std::make_unique<juce::FileChooser>("Choose the original audio file to render",juce::File(),"*.wav;*.flac;*.aif;*.aiff;*.mp3;*.m4a;*.aac;*.ogg;*.opus");
+    renderChooser->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this)](const juce::FileChooser& chooser){
+        if(safe && chooser.getResult().existsAsFile())safe->confirmFileRender(chooser.getResult());
+    });
+}
+void TDSpeedVSTAudioProcessorEditor::confirmFileRender(const juce::File& source) {
+    tdFile::Request request;request.source=source;request.rack=tdEffects::captureState(processor.apvts);
+    request.semitones=processor.isDawMode()?processor.pendingDawPitch():processor.apvts.getRawParameterValue("semitones")->load();
+    const auto speed=std::pow(2.,request.semitones/12.);
+    const auto message="Render the entire selected file at "+juce::String(request.semitones,1)+" semitones ("+juce::String(speed*100,1)+"% speed) with this instance's current effects and output levels?\n\nThe original format, sample rate and bit depth are kept where supported. Compressed files are re-encoded at their original bitrate; longer audio makes a proportionally larger file. MP3/AAC export uses FFmpeg.\n\nThis creates a new file, not a replacement DAW clip. Import or drag it into your DAW, mute the original and avoid applying pitch/effects twice. Other DAW effects, automation, clip edits and group members are not included. Plugin bypass does not disable this file render.";
+    juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon,"Render slowed file",message,"Choose output","Cancel",this,juce::ModalCallbackFunction::create([safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this),request](int yes){if(safe && yes)safe->chooseRenderDestination(request);}));
+}
+void TDSpeedVSTAudioProcessorEditor::chooseRenderDestination(tdFile::Request request) {
+    const auto initial=request.source.getSiblingFile(request.source.getFileNameWithoutExtension()+" - TDSpeed"+request.source.getFileExtension());
+    renderChooser=std::make_unique<juce::FileChooser>("Save rendered audio",initial,"*.wav;*.flac;*.aif;*.aiff;*.mp3;*.m4a;*.aac;*.ogg;*.opus");
+    renderChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this),request](const juce::FileChooser& chooser) mutable {
+        if(!safe || chooser.getResult()==juce::File())return;request.destination=chooser.getResult();
+        safe->showRender.setVisible(false);safe->renderButton.setEnabled(false);safe->cancelRender.setVisible(true);
+        safe->fileJob=std::make_unique<tdFile::Job>(request);if(!safe->fileJob->startThread()){safe->fileJob.reset();safe->renderButton.setEnabled(true);safe->cancelRender.setVisible(false);safe->renderStatus.setText("Could not start render worker",juce::dontSendNotification);}
+    });
 }

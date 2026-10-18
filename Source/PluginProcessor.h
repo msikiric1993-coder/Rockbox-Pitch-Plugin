@@ -32,6 +32,8 @@ public:
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override;
     double getBufferedTailSeconds() const noexcept { return bufferedTailSeconds.load(std::memory_order_relaxed); }
+    void prepareFileEffects(double sampleRate);
+    void processFileEffects(juce::AudioBuffer<float>&);
     float getOutputPeak() const noexcept {return outputPeak.load();}
 
     int getNumPrograms() override { return 1; }
