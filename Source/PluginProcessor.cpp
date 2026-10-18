@@ -81,6 +81,8 @@ void TDSpeedVSTAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     rbR.assign((size_t)rbSize, 0.0f);
     writeIdx = 0;
     writtenSamples = 0;
+    lastSignalSourceFrame = -1;
+    bufferedTailSeconds.store(0.0, std::memory_order_relaxed);
     lastEffRate = std::pow(2.0f, pSemitones->load() / 12.0f);
     rateSmoothing = 1.0f - std::exp(-1.0f / static_cast<float>(fs * 0.001));
     resetWasHigh = false;
@@ -182,6 +184,7 @@ void TDSpeedVSTAudioProcessor::applyPitchVarispeed(juce::AudioBuffer<float>& buf
         }
 
         // Capture continues during recovery; the restart reads fresh history.
+        if (inL[n] != 0.0f || inR[n] != 0.0f) lastSignalSourceFrame = writtenSamples;
         rbL[(size_t)writeIdx] = inL[n];
         rbR[(size_t)writeIdx] = inR[n];
         if (++writeIdx == rbSize) writeIdx = 0;
@@ -225,6 +228,7 @@ void TDSpeedVSTAudioProcessor::applyPitchVarispeed(juce::AudioBuffer<float>& buf
         readIdx += lastEffRate;
     }
     flushRack(N);
+    updateBufferedTail();
     backlogSeconds.store(static_cast<float>((writtenSamples - readIdx) / fs), std::memory_order_relaxed);
     bufferStatus.store(pauseReason, std::memory_order_relaxed);
     pauseSeconds.store(static_cast<float>(pauseSamplesRemaining / fs), std::memory_order_relaxed);
@@ -235,7 +239,8 @@ void TDSpeedVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ignoreUnused(midi);
     juce::ScopedNoDenormals noDenormals;
 
-    if (buffer.getNumSamples() == 0 || rbSize <= 0) return;
+    if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0 || rbSize <= 0) return;
+    if(processSongAudition(buffer,false))return;
     if(isDawMode()){processDaw(buffer,false);return;}
     if(legacyResetRequested.exchange(false)){springVerb.reset();legacyFault.store(false);}
     const bool resetHigh = pReset->load() > 0.5f;
@@ -284,6 +289,7 @@ void TDSpeedVSTAudioProcessor::processBlockBypassed(juce::AudioBuffer<float>& bu
     juce::ignoreUnused(midi);
     juce::ScopedNoDenormals noDenormals;
     if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0 || rbSize <= 0) return;
+    if(processSongAudition(buffer,true))return;
     if(isDawMode()){processDaw(buffer,true);return;}
     if (rbSize <= 0 || buffer.getNumChannels() == 0) return;
     if (!wasBypassed) { springVerb.reset(); effects.reset(); }
@@ -294,12 +300,14 @@ void TDSpeedVSTAudioProcessor::processBlockBypassed(juce::AudioBuffer<float>& bu
     {
         if (pauseReason == 0 && (double)writtenSamples - readIdx >= rbSize - 4)
             beginRecoveryPause(1);
+        if (left[n] != 0.0f || right[n] != 0.0f) lastSignalSourceFrame = writtenSamples;
         rbL[(size_t)writeIdx] = left[n];
         rbR[(size_t)writeIdx] = right[n];
         if (++writeIdx == rbSize) writeIdx = 0;
         ++writtenSamples;
         if (pauseReason != 0) advanceRecoveryPause();
     }
+    updateBufferedTail();
     backlogSeconds.store(static_cast<float>((writtenSamples - readIdx) / fs));
     bufferStatus.store(pauseReason);
     pauseSeconds.store(static_cast<float>(pauseSamplesRemaining / fs));
@@ -393,7 +401,44 @@ juce::AudioProcessorValueTreeState::ParameterLayout TDSpeedVSTAudioProcessor::cr
 }
 
 //==============================================================================
-double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {return pBypass->load()>.5f?0:effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
+void TDSpeedVSTAudioProcessor::updateBufferedTail() noexcept
+{
+    // Silence after a clip must drain this estimate, not create an ever-growing
+    // tail. Track actual buffered signal separately from incoming timeline time.
+    double remaining = 0.0;
+    const double rate = dawRender ? dawRate : (double)lastEffRate;
+    if (lastSignalSourceFrame >= 0 && lastSignalSourceFrame >= writtenSamples - rbSize
+        && std::isfinite(rate) && rate > 0.0 && fs > 0.0)
+        remaining = std::max(0.0, (lastSignalSourceFrame + 2.0 - readIdx) / (fs * rate));
+    bufferedTailSeconds.store(remaining, std::memory_order_relaxed);
+}
+
+double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {
+    if(!isNonRealtime()) {
+        const int mode=auditionMode.load();
+        if(mode==2)return preview.playing.load()?std::max(0.,preview.durationSeconds.load()-preview.position.load()):0.;
+        if(mode==1){const double speed=pBypass->load()>.5f?1.:std::pow(2.,juce::jlimit(-12.f,12.f,isDawMode()?pendingDawPitch():pSemitones->load())/12.);return (source.playing.load()?std::max(0.,source.durationSeconds.load()-source.position.load())/speed:0.)+effects.tailSeconds()+(pRevOn->load()>.5f?4.2:0.);}
+    }
+    return (isDawMode()?groupBypassed():pBypass->load()>.5f)?0:getBufferedTailSeconds()+effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
+bool TDSpeedVSTAudioProcessor::processSongAudition(juce::AudioBuffer<float>& buffer,bool hostBypassed) {
+    // Offline host exports continue to process DAW input. File rendering has its
+    // own worker, and in-plugin audition must never contaminate a DAW bounce.
+    if(isNonRealtime())return false;
+    const int mode=auditionMode.load();
+    if(mode==0){if(wasFileAudition){springVerb.reset();effects.reset();wasFileAudition=false;}return false;}
+    if(restartSong.exchange(false) || !wasFileAudition){springVerb.reset();effects.reset();reverbWasOn=false;}
+    if(legacyResetRequested.exchange(false)){springVerb.reset();legacyFault=false;}
+    wasFileAudition=true;buffer.clear();
+    if(mode==2) {
+        preview.render(buffer,fs);outputPeak.store(juce::jmin(32.f,buffer.getMagnitude(0,buffer.getNumSamples())));return true;
+    }
+    const bool bypass=hostBypassed || pBypass->load()>.5f;
+    const float pitch=juce::jlimit(-12.f,12.f,isDawMode()?pendingDawPitch():pSemitones->load());
+    source.render(buffer,fs,bypass?1.:std::pow(2.,pitch/12.));
+    if(bypass)finishOutput(buffer);else processFileEffects(buffer);
+    return true;
+}
+
 void TDSpeedVSTAudioProcessor::finishOutput(juce::AudioBuffer<float>& buffer)
 {
     float db=pMasterOutput->load();if(!std::isfinite(db))db=0;masterGain.setTargetValue(juce::Decibels::decibelsToGain(juce::jlimit(-24.0f,12.0f,db)));
@@ -443,7 +488,7 @@ juce::String TDSpeedVSTAudioProcessor::dawStatusText() const {
         }
     }
 }
-void TDSpeedVSTAudioProcessor::freshDawHistory(){writeIdx=0;writtenSamples=0;readIdx=-targetBacklog;pauseReason=0;pauseSamplesRemaining=0;springVerb.reset();effects.reset();reverbWasOn=false;backlogSeconds=.25f;bufferStatus=0;pauseSeconds=0;}
+void TDSpeedVSTAudioProcessor::freshDawHistory(){writeIdx=0;writtenSamples=0;lastSignalSourceFrame=-1;bufferedTailSeconds=0;readIdx=-targetBacklog;pauseReason=0;pauseSamplesRemaining=0;springVerb.reset();effects.reset();reverbWasOn=false;backlogSeconds=.25f;bufferStatus=0;pauseSeconds=0;}
 void TDSpeedVSTAudioProcessor::reset(){
     if(!isDawMode())return;
     dawHostReset=true;dawStatus=1;auto* g=syncGroup.load();if(!g)g=&solo;
@@ -508,4 +553,28 @@ void TDSpeedVSTAudioProcessor::processDaw(juce::AudioBuffer<float>& buffer,bool 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     auto* processor=new TDSpeedVSTAudioProcessor();tdEffects::setParameter(processor->apvts,"timingMode",1);return processor;
+}
+
+// A private processor is used by the file-render worker. No live history or
+// synchronization group is touched, and no full-song RAM allocation is needed.
+void TDSpeedVSTAudioProcessor::prepareFileEffects(double rate) {
+    fs=rate;masterGain.reset(fs,.02);masterGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(pMasterOutput->load()));
+    legacyMix.reset(fs,.02);legacyGain.reset(fs,.02);legacyWetGain.reset(fs,.02);
+    reverbWasOn=false;legacyFault=false;springVerb.prepare(fs,512);effects.prepare(fs,true);
+    prepareEffectControls();
+}
+void TDSpeedVSTAudioProcessor::processFileEffects(juce::AudioBuffer<float>& buffer) {
+    juce::ScopedNoDenormals noDenormals;prepareEffectControls();effects.beginBlock();
+    if(reverbWasOn && pEffectsBypass->load()<.5f && !legacyFault.load()) {
+        for(int n=0;n<buffer.getNumSamples();++n) {
+            const float l=buffer.getSample(0,n),r=buffer.getSample(juce::jmin(1,buffer.getNumChannels()-1),n);
+            float left=l,right=r;float* ch[]{&left,&right};springVerb.process(ch,2,1,1);
+            if(!std::isfinite(*ch[0]) || !std::isfinite(*ch[1]) || std::abs(*ch[0])>32 || std::abs(*ch[1])>32){legacyFault=true;continue;}
+            const float mix=legacyMix.getNextValue(),gain=legacyGain.getNextValue(),wet=legacyWetGain.getNextValue()*blockLegacyCalibration;
+            const float d=mix==1?0:std::cos(mix*juce::MathConstants<float>::halfPi),w=mix==0?0:wet*std::sin(mix*juce::MathConstants<float>::halfPi);
+            left=mix==0 && gain==1?l:(l*d+left*w)*gain;right=mix==0 && gain==1?r:(r*d+right*w)*gain;
+            buffer.setSample(0,n,buffer.getNumChannels()==1?.5f*(left+right):left);if(buffer.getNumChannels()>1)buffer.setSample(1,n,right);
+        }
+    }
+    effects.process(buffer,0,buffer.getNumSamples());finishOutput(buffer);
 }

@@ -1,4 +1,10 @@
-# TDSpeed 0.4.1 validation
+# TDSpeed 0.4.2-rc.1 validation
+
+The project owner accepted the source player and standalone Song render revision. RC-specific results, signature status and package hashes are in the accompanying Validation-report.txt. No two-hour soak is requested or performed.
+
+New tests cover load without autoplay/render, source audition, complete changed-length rendering, effect tails, preview lifetime, waveform controls, cancellation, failed saves, native FLAC and optional FFmpeg/AAC. Sources and rendered previews are session-only. Keep permanent audio in the DAW project or use Save As. Live VST processing does not extend host clips or export ranges; Render from start creates a complete new file instead.
+
+## Historical 0.4.1 baseline
 
 The user accepted the 0.4.1 preview as working well on 18 October 2026. This release review preserves its plugin identity, parameters, effects and sound. No two-hour soak is required or performed.
 

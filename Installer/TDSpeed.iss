@@ -4,10 +4,18 @@
 #ifndef DriverDir
   #define DriverDir "..\out\dependencies\VBCABLE"
 #endif
+#ifndef ReleaseVersion
+  #define ReleaseVersion "0.4.2-rc.1"
+#endif
 [Setup]
 AppId={{9240D5A8-051A-4D27-B83E-27A8E7069411}
 AppName=TDSpeed Preview
-AppVersion=0.4.1
+AppVersion={#ReleaseVersion}
+VersionInfoVersion=0.4.2.0
+#ifdef TrustedSigning
+SignTool=PublisherSign
+SignedUninstaller=yes
+#endif
 SetupIconFile=..\Source\Assets\TDSpeed.ico
 AppPublisher=Fyodor
 DefaultDirName={localappdata}\Programs\TDSpeed Preview
@@ -17,7 +25,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=..\..\release
-OutputBaseFilename=TDSpeed-Setup-0.4.1
+OutputBaseFilename=TDSpeed-Setup-{#ReleaseVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -33,7 +41,7 @@ Source: "{#AppStage}\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppStage}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppStage}\CHANGELOG.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#AppStage}\docs\*"; DestDir: "{app}\docs"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#AppStage}\TDSpeed-Source-0.4.1.zip"; DestDir: "{app}\Source"; Flags: ignoreversion
+Source: "{#AppStage}\TDSpeed-Source-{#ReleaseVersion}.zip"; DestDir: "{app}\Source"; Flags: ignoreversion
 Source: "{#AppStage}\Licences\*"; DestDir: "{app}\Licences"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "ThirdPartyNotice.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#DriverDir}\*"; DestDir: "{app}\Drivers\VB-CABLE"; Flags: ignoreversion recursesubdirs createallsubdirs

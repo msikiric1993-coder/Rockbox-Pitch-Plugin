@@ -43,7 +43,7 @@ class Rack : private juce::AsyncUpdater
 public:
     explicit Rack(juce::AudioProcessorValueTreeState&);
     ~Rack();
-    void prepare(double rate);
+    void prepare(double rate, bool offline = false);
     void beginBlock();
     void process(juce::AudioBuffer<float>&, int start, int count);
     void reset();

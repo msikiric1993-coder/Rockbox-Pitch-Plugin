@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(TDSpeedVST VERSION 0.4.1 LANGUAGES CXX)
+project(TDSpeedVST VERSION 0.4.2 LANGUAGES CXX)
 
 add_subdirectory(JUCE)
 
@@ -17,6 +17,7 @@ juce_add_plugin(TDSpeedVST
 target_sources(TDSpeedVST PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/FileRender.cpp
     Source/EffectsRack.cpp
     Source/EffectsPanel.cpp)
 
@@ -121,6 +122,7 @@ if(TDSPEED_BUILD_TESTS)
         target_link_options(TDSpeedPluginHostSmoke PRIVATE /INCREMENTAL:NO /DEBUG)
     endif()
     add_test(NAME TDSpeedActualVST3 COMMAND TDSpeedPluginHostSmoke "${CMAKE_CURRENT_BINARY_DIR}/TDSpeedVST_artefacts/Release/VST3/TDSpeedPreview.vst3")
+    add_test(NAME TDSpeedExportTailVST3 COMMAND TDSpeedPluginHostSmoke "${CMAKE_CURRENT_BINARY_DIR}/TDSpeedVST_artefacts/Release/VST3/TDSpeedPreview.vst3" --export-tail)
     add_executable(TDSpeedDawTests Tests/DawTests.cpp)
     target_compile_features(TDSpeedDawTests PRIVATE cxx_std_17)
     target_include_directories(TDSpeedDawTests PRIVATE Source JUCE/modules "${CMAKE_CURRENT_BINARY_DIR}/TDSpeedVST_artefacts/JuceLibraryCode")
@@ -131,4 +133,17 @@ if(TDSPEED_BUILD_TESTS)
         target_link_options(TDSpeedDawTests PRIVATE /INCREMENTAL:NO /DEBUG)
     endif()
     add_test(NAME TDSpeedDawSynchronization COMMAND TDSpeedDawTests)
+endif()
+
+if(TDSPEED_BUILD_TESTS)
+    add_executable(TDSpeedFileRenderTests Tests/FileRenderTests.cpp)
+    target_compile_features(TDSpeedFileRenderTests PRIVATE cxx_std_17)
+    target_include_directories(TDSpeedFileRenderTests PRIVATE Source JUCE/modules "${CMAKE_CURRENT_BINARY_DIR}/TDSpeedVST_artefacts/JuceLibraryCode")
+    target_compile_definitions(TDSpeedFileRenderTests PRIVATE $<TARGET_PROPERTY:TDSpeedVST,COMPILE_DEFINITIONS>)
+    target_link_libraries(TDSpeedFileRenderTests PRIVATE TDSpeedVST)
+    if(TDSPEED_ENABLE_ASAN AND MSVC)
+        target_compile_options(TDSpeedFileRenderTests PRIVATE /fsanitize=address /Zi)
+        target_link_options(TDSpeedFileRenderTests PRIVATE /INCREMENTAL:NO /DEBUG)
+    endif()
+    add_test(NAME TDSpeedFileRender COMMAND TDSpeedFileRenderTests)
 endif()

@@ -1,4 +1,4 @@
-param([switch]$SkipBuild,[switch]$SkipTests,[string]$BuildDir,[string]$DependencyDir,[string]$ReleaseDir)
+param([string]$Version = '0.4.2-rc.1',[string]$SigningThumbprint,[string]$SignTool,[switch]$SkipBuild,[switch]$SkipTests,[string]$BuildDir,[string]$DependencyDir,[string]$ReleaseDir)
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $PSScriptRoot
 if (-not $BuildDir) { $BuildDir = Join-Path $project 'out/build/release' }
@@ -11,11 +11,19 @@ $ctestPath = Join-Path (Split-Path -Parent $cmakePath) 'ctest.exe'
 if (-not $SkipBuild) {
     & $cmakePath -S $project -B $BuildDir -G 'Visual Studio 17 2022' -A x64 -DTDSPEED_BUILD_TESTS=ON '-DCMAKE_CXX_FLAGS=/MP4 /EHsc'
     if ($LASTEXITCODE -ne 0) { throw 'Configuration failed' }
-    & $cmakePath --build $BuildDir --config Release --target TDSpeedApp TDSpeedTests TDSpeedEffectsTests TDSpeedDelayTests TDSpeedVST_VST3 TDSpeedEngineAudit TDSpeedPluginHostSmoke TDSpeedDawTests -j 4
+    & $cmakePath --build $BuildDir --config Release --target TDSpeedApp TDSpeedTests TDSpeedEffectsTests TDSpeedDelayTests TDSpeedVST_VST3 TDSpeedEngineAudit TDSpeedPluginHostSmoke TDSpeedDawTests TDSpeedFileRenderTests -j 4
     if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
 }
 if (-not $SkipTests) { & $ctestPath --test-dir $BuildDir -C Release --output-on-failure; if ($LASTEXITCODE -ne 0) { throw 'Release tests failed' } }
 New-Item -ItemType Directory -Force $ReleaseDir | Out-Null
+if ($SigningThumbprint) {
+    if (-not $SignTool) { $SignTool = (Get-Command signtool -ErrorAction Stop).Source }
+    $signTargets = @((Join-Path $BuildDir 'TDSpeedApp_artefacts/Release/TDSpeedPreview.exe'), (Join-Path $BuildDir 'TDSpeedVST_artefacts/Release/VST3/TDSpeedPreview.vst3/Contents/x86_64-win/TDSpeedPreview.vst3'))
+    foreach ($target in $signTargets) {
+        & $SignTool sign /sha1 $SigningThumbprint /fd SHA256 /tr 'http://timestamp.digicert.com' /td SHA256 $target
+        if ($LASTEXITCODE -ne 0 -or (Get-AuthenticodeSignature -LiteralPath $target).Status -ne 'Valid') { throw 'Trusted binary signing failed' }
+    }
+}
 $stage = Join-Path $ReleaseDir 'portable/TDSpeed Preview'
 New-Item -ItemType Directory -Force $stage | Out-Null
 Copy-Item -LiteralPath (Join-Path $BuildDir 'TDSpeedApp_artefacts/Release/TDSpeedPreview.exe') -Destination $stage -Force
@@ -25,7 +33,7 @@ $redistRoot = Join-Path $vsInstall 'VC/Redist/MSVC'
 $crt = Get-ChildItem -LiteralPath $redistRoot -Directory | Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64/Microsoft.VC143.CRT' } | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 if (-not $crt) { throw 'MSVC x64 runtime directory not found' }
 Copy-Item -Path (Join-Path $crt '*.dll') -Destination $stage -Force
-Copy-Item -LiteralPath (Join-Path $project 'Installer/Read me.txt'),(Join-Path $project 'Installer/ThirdPartyNotice.txt'),(Join-Path $project 'README.md'),(Join-Path $project 'CHANGELOG.md'),(Join-Path $project 'LICENSE') -Destination $stage -Force
+Copy-Item -LiteralPath (Join-Path $project 'Installer/Read me.txt'),(Join-Path $project 'Installer/ThirdPartyNotice.txt'),(Join-Path $project 'README.md'),(Join-Path $project 'CHANGELOG.md'),(Join-Path $project 'LICENSE'),(Join-Path $project 'docs/File-render-preview.md') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $project 'docs') -Destination $stage -Force -Recurse
 $licences = Join-Path $stage 'Licences';New-Item -ItemType Directory -Force $licences | Out-Null
 $notices = @{
@@ -36,7 +44,7 @@ $notices = @{
  'MVerb-GPL-3.0.txt'='Source/ThirdParty/MVerb/gpl-3.0.txt';'MVerb-notice.txt'='Source/ThirdParty/MVerb/LICENSE';'Dependency-revisions.md'='Source/ThirdParty/VERSIONS.md'
 }
 foreach ($entry in $notices.GetEnumerator()) { Copy-Item -LiteralPath (Join-Path $project $entry.Value) -Destination (Join-Path $licences $entry.Key) -Force }
-$sourceZip = Join-Path $stage 'TDSpeed-Source-0.4.1.zip'
+$sourceZip = Join-Path $stage "TDSpeed-Source-$Version.zip"
 python (Join-Path $PSScriptRoot 'Archive-Source.py') $project $sourceZip
 if ($LASTEXITCODE -ne 0) { throw 'Source archive verification failed' }
 Copy-Item -LiteralPath $sourceZip -Destination $ReleaseDir -Force
@@ -47,15 +55,24 @@ Copy-Item -Path (Join-Path $crt '*.dll') -Destination (Join-Path $pluginDir 'TDS
 Copy-Item -LiteralPath $licences -Destination $pluginDir -Force -Recurse
 Copy-Item -LiteralPath $sourceZip -Destination $pluginDir -Force
 Copy-Item -LiteralPath (Join-Path $project 'README.md') -Destination $pluginDir -Force
-Compress-Archive -Path (Join-Path $pluginDir '*') -DestinationPath (Join-Path $ReleaseDir 'TDSpeed-VST3-0.4.1.zip') -Force
+Compress-Archive -Path (Join-Path $pluginDir '*') -DestinationPath (Join-Path $ReleaseDir "TDSpeed-VST3-$Version.zip") -Force
 $driverDir = Join-Path $DependencyDir 'VBCABLE';$driver = Join-Path $driverDir 'VBCABLE_Setup_x64.exe';$inno = Join-Path $DependencyDir 'Inno/ISCC.exe'
 if ((Get-AuthenticodeSignature -LiteralPath $driver).Status -ne 'Valid') { throw 'Invalid VB-Audio signature' }
 if ((Get-FileHash -LiteralPath $driver).Hash -ne '734C35DFA6D98F48782A451633CEB471166EC70D60482FD89A1123D0EE3C4F41') { throw 'Unexpected VB-CABLE package revision' }
-& $inno "/DAppStage=$stage" "/DDriverDir=$driverDir" "/O$ReleaseDir" (Join-Path $project 'Installer/TDSpeed.iss')
+$signArgs = @()
+if ($SigningThumbprint) {
+    $signCommand = '$q' + $SignTool + '$q sign /sha1 ' + $SigningThumbprint + ' /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $f'
+    $signArgs = @('/DTrustedSigning', ('/SPublisherSign=' + $signCommand))
+}
+& $inno @signArgs "/DReleaseVersion=$Version" "/DAppStage=$stage" "/DDriverDir=$driverDir" "/O$ReleaseDir" (Join-Path $project 'Installer/TDSpeed.iss')
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
-Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $ReleaseDir 'TDSpeed-Portable-0.4.1.zip') -Force
+if ($SigningThumbprint) {
+    $installer = Join-Path $ReleaseDir "TDSpeed-Setup-$Version.exe"
+    if ((Get-AuthenticodeSignature -LiteralPath $installer).Status -ne 'Valid') { throw 'Trusted installer signing failed' }
+}
+Compress-Archive -Path (Join-Path $stage '*') -DestinationPath (Join-Path $ReleaseDir "TDSpeed-Portable-$Version.zip") -Force
 $manifest = Get-ChildItem -LiteralPath $ReleaseDir -File -Recurse | Where-Object { $_.Name -ne 'SHA256.json' } | ForEach-Object { @{path=$_.FullName.Substring($ReleaseDir.Length+1).Replace('\','/');sha256=(Get-FileHash -LiteralPath $_.FullName).Hash.ToLower()} }
 $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $ReleaseDir 'SHA256.json')
-python (Join-Path $PSScriptRoot 'Verify-Release.py') $project $BuildDir $ReleaseDir
+python (Join-Path $PSScriptRoot 'Verify-Release.py') $project $BuildDir $ReleaseDir $Version
 if ($LASTEXITCODE -ne 0) { throw 'Final package/source verification failed' }
 Write-Output "Release packages built in $ReleaseDir"

@@ -1,4 +1,5 @@
 #include "EffectsRack.h"
+#include <stdexcept>
 #include "SpringVerb.h"
 #include "FractionalDelay.h"
 #include "WetCalibration.h"
@@ -621,7 +622,7 @@ struct Rack::Impl
 };
 Rack::Rack(juce::AudioProcessorValueTreeState& state):impl(std::make_unique<Impl>(state)){}
 Rack::~Rack(){cancelPendingUpdate();impl->irPool.removeAllJobs(true,-1);}
-void Rack::prepare(double rate)
+void Rack::prepare(double rate, bool offline)
 {
     impl->irPool.removeAllJobs(true,-1);impl->rate=rate;
     for(int i=0;i<3;++i)
@@ -645,7 +646,21 @@ void Rack::prepare(double rate)
         slot.fault.store(false);slot.resetRequested.store(false);slot.selected=-1;slot.enabled=false;slot.mute=0;slot.first=true;
         slot.wet.reset(rate,0.02);slot.gain.reset(rate,0.02);slot.wetDb.reset(rate,.02);
     }
-    impl->irEngines.clear();impl->prepared=true;beginBlock();reloadImpulseResponses();
+    impl->irEngines.clear();impl->prepared=true;
+    if(offline) {
+        cancelPendingUpdate();
+        for(int i=0;i<3;++i) {
+            auto& slot=impl->slots[(size_t)i];
+            const auto path=impl->state.state.getProperty(slotId(i,"IR")).toString();
+            if(path.isNotEmpty() && effectIndex(slot.choice->load())==8 && slot.on->load()>.5f && impl->bypass->load()<.5f) {
+                auto* convolution=static_cast<Convolution*>(slot.engines[8].get());
+                if(!juce::File(path).existsAsFile() || !convolution->prepareFile(juce::File(path),rate))
+                    throw std::runtime_error("The selected convolution IR is missing or unreadable");
+                slot.irTail=convolution->lengthSeconds;slot.irState=2;
+            }
+        }
+    }
+    beginBlock();if(!offline)reloadImpulseResponses();
 }
 void Rack::beginBlock()
 {

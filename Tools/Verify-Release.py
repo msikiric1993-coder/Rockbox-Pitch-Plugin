@@ -6,6 +6,7 @@ import sys
 import zipfile
 
 project, build, release = (pathlib.Path(p).resolve() for p in sys.argv[1:4])
+version = sys.argv[4] if len(sys.argv) > 4 else "0.4.2-rc.1"
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
@@ -18,7 +19,7 @@ for entry in manifest:
     if digest(target.read_bytes()) != entry["sha256"].lower():
         raise RuntimeError("Package hash mismatch: " + entry["path"])
 
-source_name = "TDSpeed-Source-0.4.1.zip"
+source_name = f"TDSpeed-Source-{version}.zip"
 source_path = release / source_name
 source_bytes = source_path.read_bytes()
 with zipfile.ZipFile(source_path) as archive:
@@ -48,9 +49,9 @@ def check_package(name, filename, expected):
         if len(entries) != 1 or digest(archive.read(entries[0])) != digest(expected):
             raise RuntimeError("Archive content mismatch: " + name + " / " + filename)
 
-check_package("TDSpeed-Portable-0.4.1.zip", "TDSpeedPreview.exe", app.read_bytes())
-check_package("TDSpeed-VST3-0.4.1.zip", "TDSpeedPreview.vst3", plugin.read_bytes())
-for package in ("TDSpeed-Portable-0.4.1.zip", "TDSpeed-VST3-0.4.1.zip"):
+check_package(f"TDSpeed-Portable-{version}.zip", "TDSpeedPreview.exe", app.read_bytes())
+check_package(f"TDSpeed-VST3-{version}.zip", "TDSpeedPreview.vst3", plugin.read_bytes())
+for package in (f"TDSpeed-Portable-{version}.zip", f"TDSpeed-VST3-{version}.zip"):
     check_package(package, source_name, source_bytes)
 
 print(json.dumps({"passed": True, "manifestEntries": len(manifest), "sourceFiles": len(inventory),

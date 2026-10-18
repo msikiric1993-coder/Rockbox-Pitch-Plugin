@@ -16,14 +16,14 @@ TDSpeed is a personal-use application built with JUCE. JUCE and Microsoft
 runtime components retain their respective licenses. The app and installer
 are unsigned; the bundled VB-Audio driver package is vendor signed.
 
-Effects in version 0.4.1 embed selected Airwindows DSP (MIT), CloudSeedCore
+Effects in version 0.4.2-rc.1 embed selected Airwindows DSP (MIT), CloudSeedCore
 by Ghost Note Engineering Ltd (MIT), Freeverb3 DSP from Dragonfly Reverb
 (GPL version 2 or later, alongside Dragonfly's GPL version 3 notice),
 ChowMatrix diffusion (BSD 3-clause), and CHOW Tape's magnetic model (GPLv3).
 JUCE modules are available under AGPLv3 or their commercial licence.
 Individual licence texts are in the Licences folder. Corresponding adapted
 source, JUCE source, tests and build instructions are provided in
-Source\TDSpeed-Source-0.4.1.zip. This archive is also included in the portable
+Source\TDSpeed-Source-0.4.2-rc.1.zip. This archive is also included in the portable
 package. Third-party authors retain ownership of their respective code.
 
 These are embedded DSP engines with TDSpeed controls. The app does not load
@@ -32,3 +32,5 @@ The smooth hall is an original Poweramp-inspired listening effect; it is not
 an exact Poweramp reverb clone.
 
 RC additionally embeds Signalsmith Basics/DSP (MIT) and MVerb (GPL-3.0-or-later). Full licence texts and pinned revisions are included.
+
+FFmpeg is optional and not bundled. AAC encoding uses an installed FFmpeg executable; FLAC saving uses the included JUCE codec.

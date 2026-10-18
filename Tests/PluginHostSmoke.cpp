@@ -21,6 +21,19 @@ int main(int argc,char** argv)
             throw std::runtime_error("Missing hosted parameter: "+id.toStdString());
         };
         auto set=[&](const char* id,float normalized){parameter(id)->setValueNotifyingHost(normalized);};
+        if (argc==3 && juce::String(argv[2])=="--export-tail") {
+            set("timingMode",0);set("bypass",0);set("semitones",0);
+            set("rack1_on",0);set("rack2_on",0);set("rack3_on",0);set("revOn",0);
+            instance->setRateAndBufferSizeDetails(48000,257);instance->prepareToPlay(48000,257);
+            juce::AudioBuffer<float> audio(2,257);juce::MidiBuffer midi;int position=0;
+            for(;position<48000;position+=257){audio.clear();for(int n=0;n<257;++n)if(position+n>=47992 && position+n<48000)for(int c=0;c<2;++c)audio.setSample(c,n,.25f);instance->processBlock(audio,midi);}
+            const double tail=instance->getTailLengthSeconds();
+            require(tail>1.4 && tail<1.6,"Real VST3 tail omits slowed buffered ending");
+            double energy=0;for(int n=0;n<96000;n+=257){audio.clear();instance->processBlock(audio,midi);for(int i=0;i<257;++i)energy+=audio.getSample(0,i)*audio.getSample(0,i);}
+            require(energy>.01,"Real VST3 loses the clip's final marker");
+            require(instance->getTailLengthSeconds()==0,"Real VST3 reports an endless silence tail");
+            instance->releaseResources();std::cout<<"PASS actual VST3 buffered tail, final marker and drainage\n";return 0;
+        }
         // Optional deterministic render: run this same host against the accepted
         // and release modules, then compare their raw float files byte-for-byte.
         if (argc == 3) {
