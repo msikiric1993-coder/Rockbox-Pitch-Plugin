@@ -56,6 +56,16 @@ TDSpeedVSTAudioProcessorEditor::TDSpeedVSTAudioProcessorEditor(TDSpeedVSTAudioPr
 {
     setLookAndFeel(&theme);setResizable(false,false);addAndMakeVisible(content);
     for(auto* c:std::initializer_list<juce::Component*>{&renderButton,&cancelRender,&showRender,&renderStatus})content.addAndMakeVisible(c);
+
+    for(auto* c:std::initializer_list<juce::Component*>{&armCapture,&finishCapture,&cancelCapture,&captureStatus})content.addAndMakeVisible(c);
+    armCapture.setColour(juce::TextButton::buttonColourId,juce::Colour(0xffe9b66a));
+    armCapture.setColour(juce::TextButton::textColourOffId,juce::Colour(0xff10171b));
+    armCapture.onClick=[this]{armTrackRender();};finishCapture.onClick=[this]{processor.trackCapture.finishManually();};
+    cancelCapture.onClick=[this]{processor.trackCapture.cancel();};
+    finishCapture.setTooltip("Use after the DAW bounce finishes if capture does not finish automatically");
+    captureStatus.setFont(juce::Font(11));captureStatus.setText("Arm, then run a silent Fast Bounce",juce::dontSendNotification);
+    finishCapture.setVisible(false);cancelCapture.setVisible(false);
+    renderButton.setButtonText("Render source file");
     renderButton.onClick=[this]{chooseRenderSource();};
     cancelRender.onClick=[this]{if(fileJob)fileJob->signalThreadShouldExit();};
     showRender.onClick=[this]{if(!showRender.dragged && renderedFile.existsAsFile())renderedFile.revealToUser();};
@@ -103,9 +113,26 @@ void TDSpeedVSTAudioProcessorEditor::updateSize()
 }
 void TDSpeedVSTAudioProcessorEditor::timerCallback()
 {
+    if(!standalone) {
+        auto& capture=processor.trackCapture;capture.poll();const auto state=capture.status();
+        const bool busyCapture=state==TrackCapture::armed || state==TrackCapture::capturing || state==TrackCapture::finishing;
+        armCapture.setEnabled(!fileJob && !busyCapture);finishCapture.setVisible(busyCapture);cancelCapture.setVisible(busyCapture);
+        renderButton.setEnabled(!fileJob && !busyCapture);
+        if(state==TrackCapture::armed)captureStatus.setText("Armed / run DAW Fast Bounce over original range",juce::dontSendNotification);
+        if(state==TrackCapture::capturing)captureStatus.setText("Captured "+juce::String(capture.capturedFrames()/capture.sampleRate(),1)+" s / finish after bounce",juce::dontSendNotification);
+        if(state==TrackCapture::finishing)captureStatus.setText("Finalizing captured audio...",juce::dontSendNotification);
+        if(state==TrackCapture::failed)captureStatus.setText(capture.problem(),juce::dontSendNotification);
+        if(state==TrackCapture::ready && !fileJob) {
+            tdFile::Request request;request.source=capture.file;request.destination=capture.destination;request.rack=capture.rack.createCopy();request.semitones=capture.semitones;
+            showRender.setVisible(false);renderButton.setEnabled(false);cancelRender.setVisible(true);
+            fileJob=std::make_unique<tdFile::Job>(request);
+            if(!fileJob->startThread()){fileJob.reset();capture.cancel();}
+        }
+        if(state==TrackCapture::complete)captureStatus.setText("Track render finished / drag the saved WAV into the DAW",juce::dontSendNotification);
+    }
     if(fileJob) {
         if(fileJob->done.load(std::memory_order_acquire)) {
-            const auto result=fileJob->result;fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);
+            const auto result=fileJob->result;if(fileJob->request.source==processor.trackCapture.file)processor.trackCapture.markComplete();fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);
             if(result.error.isNotEmpty())renderStatus.setText(result.error,juce::dontSendNotification);
             else {renderedFile=result.file;showRender.file=renderedFile;showRender.setVisible(true);renderStatus.setText("Ready / "+juce::String(result.duration,1)+" s / import into DAW; mute original and avoid applying pitch/effects twice",juce::dontSendNotification);}
         } else renderStatus.setText("Rendering "+juce::String(100*fileJob->progress.load(),0)+"% / playback is unchanged",juce::dontSendNotification);
@@ -147,8 +174,9 @@ void TDSpeedVSTAudioProcessorEditor::resized()
     paintScale=juce::jmin(uiScale,juce::jmin(getWidth()/820.0f,getHeight()/(float)preferredHeight()));
     content.setTransform(juce::AffineTransform());content.setBounds(0,0,820,preferredHeight());content.setTransform(juce::AffineTransform::scale(paintScale));
     bypassButton.setBounds(676,26,110,30);uiSize.setBounds(567,26,90,30);
-    const int offset=(mixNotice()?28:0)+(standalone?0:86);importNotice.setVisible(mixNotice());importOK.setVisible(mixNotice());importNotice.setBounds(28,73+(standalone?0:86),690,28);importOK.setBounds(730,73+(standalone?0:86),56,28);
-    timingMode.setBounds(28,80,124,28);createGroup.setBounds(166,80,124,28);joinGroup.setBounds(304,80,284,28);leaveGroup.setBounds(602,80,184,28);syncStatus.setBounds(28,114,758,38);
+    const int offset=(mixNotice()?28:0)+(standalone?0:136);importNotice.setVisible(mixNotice());importOK.setVisible(mixNotice());importNotice.setBounds(28,73+(standalone?0:136),690,28);importOK.setBounds(730,73+(standalone?0:136),56,28);
+    armCapture.setBounds(28,78,236,34);finishCapture.setBounds(276,78,120,34);cancelCapture.setBounds(408,78,100,34);captureStatus.setBounds(520,76,268,38);
+    timingMode.setBounds(28,130,124,28);createGroup.setBounds(166,130,124,28);joinGroup.setBounds(304,130,284,28);leaveGroup.setBounds(602,130,184,28);syncStatus.setBounds(28,164,758,38);
     pitchPanel={24,86+offset,772,126};zeroButton.setBounds(636,101+offset,140,28);semitoneSlider.setBounds(40,135+offset,740,42);speedLabel.setBounds(285,178+offset,250,20);speedLabel.setJustificationType(juce::Justification::centred);
     reverbPanel={24,226+offset,772,44+(showRack?rackPanel.preferredHeight():0)};rackTab.setBounds(40,233+offset,200,30);effectsBypass.setBounds(620,233+offset,160,30);
     rackPanel.setBounds(32,270+offset,756,rackPanel.preferredHeight());
@@ -179,4 +207,20 @@ void TDSpeedVSTAudioProcessorEditor::chooseRenderDestination(tdFile::Request req
         safe->showRender.setVisible(false);safe->renderButton.setEnabled(false);safe->cancelRender.setVisible(true);
         safe->fileJob=std::make_unique<tdFile::Job>(request);if(!safe->fileJob->startThread()){safe->fileJob.reset();safe->renderButton.setEnabled(true);safe->cancelRender.setVisible(false);safe->renderStatus.setText("Could not start render worker",juce::dontSendNotification);}
     });
+}
+
+void TDSpeedVSTAudioProcessorEditor::armTrackRender() {
+    if(fileJob)return;
+    const auto message="Capture this track without choosing an original song?\n\nAfter arming, run a silent Fast Bounce/offline export in your DAW over the ORIGINAL track range. This plugin captures its incoming audio (including clip edits and effects before it), then saves a complete slowed WAV with its current pitch and effects.\n\nThe DAW's bounce file is only a capture pass; use the separate WAV created here. Other tracks, downstream effects and this plugin's automation are not included. If automatic finishing does not occur, click Finish capture AFTER the bounce ends.";
+    juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon,"Arm track render",message,"Choose WAV output","Cancel",this,juce::ModalCallbackFunction::create([safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this)](int yes){
+        if(!safe || !yes)return;
+        tdFile::Request request;request.rack=tdEffects::captureState(safe->processor.apvts);request.semitones=safe->processor.isDawMode()?safe->processor.pendingDawPitch():safe->processor.apvts.getRawParameterValue("semitones")->load();
+        safe->renderChooser=std::make_unique<juce::FileChooser>("Save complete slowed track",juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Track - TDSpeed.wav"),"*.wav");
+        safe->renderChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[safe,request](const juce::FileChooser& choice){
+            if(!safe || choice.getResult()==juce::File())return;
+            auto destination=choice.getResult().withFileExtension(".wav");
+            if(!safe->processor.trackCapture.arm(safe->processor.getSampleRate()>0?safe->processor.getSampleRate():48000,safe->processor.getTotalNumInputChannels(),request.rack,request.semitones,destination))
+                safe->captureStatus.setText("Could not arm capture; retry after stopping processing",juce::dontSendNotification);
+        });
+    }));
 }

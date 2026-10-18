@@ -45,6 +45,35 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         }
 
     }
+    // Arm in real time, capture only offline input, preserve host re-prepare,
+    // bypass callbacks, sample rate and the end marker without live backlog.
+    {
+        TDSpeedVSTAudioProcessor captureProcessor(2);captureProcessor.prepareToPlay(48000,257);
+        const auto rack=tdEffects::captureState(captureProcessor.apvts);const auto destination=root.getChildFile("captured-slow.wav");
+        require(captureProcessor.trackCapture.arm(48000,2,rack,-12,destination),"Cannot arm track capture");
+        juce::AudioBuffer<float> block(2,257);block.clear();block.setSample(0,0,.1f);juce::MidiBuffer events;
+        captureProcessor.processBlock(block,events);require(captureProcessor.trackCapture.capturedFrames()==0,"Real-time playback was written to disk");
+        captureProcessor.prepareToPlay(44100,257);captureProcessor.reset();captureProcessor.setNonRealtime(true);
+        const float backlog=captureProcessor.getBacklogSeconds();
+        for(int pos=0;pos<44100;pos+=257){const int n=juce::jmin(257,44100-pos);block.setSize(2,n,false,false,true);block.clear();
+            for(int c=0;c<2;++c)for(int i=0;i<n;++i)block.setSample(c,i,pos+i==44099?.25f:.04f*std::sin((pos+i)*.03f));
+            auto dry=juce::AudioBuffer<float>(block);if((pos/257)%2)captureProcessor.processBlockBypassed(block,events);else captureProcessor.processBlock(block,events);
+            for(int c=0;c<2;++c)for(int i=0;i<n;++i)require(block.getSample(c,i)==dry.getSample(c,i),"Capture pass changed dry input");
+        }
+        require(captureProcessor.getBacklogSeconds()==backlog,"Capture pass advanced live pitch history");
+        require(captureProcessor.trackCapture.capturedFrames()==44100,"Offline capture lost frames");
+        captureProcessor.setNonRealtime(false);captureProcessor.trackCapture.poll();require(captureProcessor.trackCapture.status()==TrackCapture::ready,"Capture does not finalize after offline render");
+        tdFile::Request captured;captured.source=captureProcessor.trackCapture.file;captured.destination=destination;captured.rack=captureProcessor.trackCapture.rack;captured.semitones=captureProcessor.trackCapture.semitones;
+        auto rendered=tdFile::render(captured,progress,[]{return false;});if(rendered.error.isNotEmpty())throw std::runtime_error(rendered.error.toStdString());
+        auto complete=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(destination));require(complete && complete->lengthInSamples==88200 && complete->sampleRate==44100,"Captured track WAV has incorrect full length/rate");
+        juce::AudioBuffer<float> last(2,8);complete->read(&last,0,8,88192,true,true);require(last.getMagnitude(0,8)>.1f,"Captured track ending was cut off");
+        captureProcessor.trackCapture.markComplete();require(captureProcessor.trackCapture.arm(44100,2,rack,0,root.getChildFile("unused.wav")),"Cannot re-arm");
+        captureProcessor.trackCapture.finishManually();captureProcessor.trackCapture.poll();require(captureProcessor.trackCapture.status()==TrackCapture::failed,"Empty capture falsely succeeds");
+    }
+    {
+        TrackCapture discontinuous;require(discontinuous.arm(48000,2,request.rack,0,root.getChildFile("jump.wav")),"Timeline fixture arm");juce::AudioBuffer<float> b(2,32);b.clear();
+        require(discontinuous.push(b,true,48000,1000),"Timeline capture first block");discontinuous.push(b,true,48000,2000);discontinuous.poll();require(discontinuous.status()==TrackCapture::failed,"Capture silently concatenates a timeline jump");
+    }
     if(argc>2) {
         auto editor=std::unique_ptr<juce::AudioProcessorEditor>(state.createEditor());
         auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(true);ui->setAdvanced(true);ui->setUiScale(1);

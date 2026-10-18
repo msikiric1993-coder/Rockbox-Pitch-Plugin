@@ -67,6 +67,7 @@ void TDSpeedVSTAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     if (externalBypass && lastDawGroup) lastDawGroup->externalBypasses.fetch_sub(1);
     externalBypass = false;
     fs = sampleRate;
+    trackCapture.prepare(sampleRate,getTotalNumInputChannels());
     dawWasPlaying=false;dawExpected=INT64_MIN;dawRun=0;dawRestart=false;pendingSeekSerial=0;lastDawGroup=nullptr;solo.run=0;solo.highWater=INT64_MIN;
     masterGain.reset(sampleRate,.02);masterGain.setCurrentAndTargetValue(1);
     legacyMix.reset(sampleRate,.02);legacyGain.reset(sampleRate,.02);legacyWetGain.reset(sampleRate,.02);legacyMix.setCurrentAndTargetValue(.25f);legacyGain.setCurrentAndTargetValue(1);legacyWetGain.setCurrentAndTargetValue(1);
@@ -240,6 +241,7 @@ void TDSpeedVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
 
     if (buffer.getNumSamples() == 0 || rbSize <= 0) return;
+    if(captureOfflineInput(buffer))return;
     if(isDawMode()){processDaw(buffer,false);return;}
     if(legacyResetRequested.exchange(false)){springVerb.reset();legacyFault.store(false);}
     const bool resetHigh = pReset->load() > 0.5f;
@@ -288,6 +290,7 @@ void TDSpeedVSTAudioProcessor::processBlockBypassed(juce::AudioBuffer<float>& bu
     juce::ignoreUnused(midi);
     juce::ScopedNoDenormals noDenormals;
     if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0 || rbSize <= 0) return;
+    if(captureOfflineInput(buffer))return;
     if(isDawMode()){processDaw(buffer,true);return;}
     if (rbSize <= 0 || buffer.getNumChannels() == 0) return;
     if (!wasBypassed) { springVerb.reset(); effects.reset(); }
@@ -463,6 +466,7 @@ juce::String TDSpeedVSTAudioProcessor::dawStatusText() const {
 }
 void TDSpeedVSTAudioProcessor::freshDawHistory(){writeIdx=0;writtenSamples=0;lastSignalSourceFrame=-1;bufferedTailSeconds=0;readIdx=-targetBacklog;pauseReason=0;pauseSamplesRemaining=0;springVerb.reset();effects.reset();reverbWasOn=false;backlogSeconds=.25f;bufferStatus=0;pauseSeconds=0;}
 void TDSpeedVSTAudioProcessor::reset(){
+    trackCapture.requestFinish();
     if(!isDawMode())return;
     dawHostReset=true;dawStatus=1;auto* g=syncGroup.load();if(!g)g=&solo;
     g->run=0;g->highWater=INT64_MIN;g->capacity=0;g->sampleRate=0;
@@ -549,4 +553,12 @@ void TDSpeedVSTAudioProcessor::processFileEffects(juce::AudioBuffer<float>& buff
         }
     }
     effects.process(buffer,0,buffer.getNumSamples());finishOutput(buffer);
+}
+
+bool TDSpeedVSTAudioProcessor::captureOfflineInput(const juce::AudioBuffer<float>& buffer) {
+    const auto captureState=trackCapture.status();
+    if(captureState!=TrackCapture::armed && captureState!=TrackCapture::capturing)return false;
+    juce::Optional<int64_t> sample;
+    if(auto* playhead=getPlayHead())if(auto position=playhead->getPosition())sample=position->getTimeInSamples();
+    return trackCapture.push(buffer,isNonRealtime(),fs,sample);
 }

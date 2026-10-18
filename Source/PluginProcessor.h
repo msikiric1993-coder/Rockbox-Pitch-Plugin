@@ -6,6 +6,7 @@
 #include "SpringVerb.h"
 #include "EffectsRack.h"
 #include "DawSync.h"
+#include "TrackCapture.h"
 
 class TDSpeedVSTAudioProcessor : public juce::AudioProcessor, private juce::AudioProcessorValueTreeState::Listener, private juce::AsyncUpdater
 {
@@ -16,7 +17,9 @@ public:
 
     //==============================================================================
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override {}
+    void releaseResources() override { trackCapture.requestFinish(); }
+    void setNonRealtime(bool offline) noexcept override {juce::AudioProcessor::setNonRealtime(offline);if(!offline)trackCapture.requestFinish();}
+    TrackCapture trackCapture;
     void reset() override;
 #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
@@ -76,6 +79,7 @@ private:
     void handleAsyncUpdate() override;
     void processDaw(juce::AudioBuffer<float>&,bool hostBypass);
     void prepareEffectControls();
+    bool captureOfflineInput(const juce::AudioBuffer<float>&);
     void freshDawHistory();
     tdDaw::Group solo;
     const uint64_t memberId=tdDaw::Registry::instance().nextMember.fetch_add(1);

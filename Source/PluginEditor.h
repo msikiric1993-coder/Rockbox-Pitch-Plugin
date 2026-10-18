@@ -21,16 +21,19 @@ public:
     void resized() override;
     void setEffectsExpanded(bool b){showRack=b;updateSize();}
     bool effectsFit() const {return !showRack || content.getLocalBounds().contains(rackPanel.getBounds());}
-    void setStandaloneMode(){standalone=true;processor.setListeningMode();bypassButton.setVisible(false);uiSize.setVisible(false);for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus})c->setVisible(false);setUiScale(1);}
+    void setStandaloneMode(){standalone=true;processor.setListeningMode();bypassButton.setVisible(false);uiSize.setVisible(false);for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus,&armCapture,&finishCapture,&cancelCapture,&captureStatus})c->setVisible(false);setUiScale(1);}
     void setUiScale(float scale){requestedScale=uiScale=scale;updateSize();}
     void setAdvanced(bool b){rackPanel.setAdvanced(b);}
     void refreshEffects(){rackPanel.refreshControls();}
     bool mixNotice() const {return !standalone && !mixExplained && (bool)processor.apvts.state.getProperty("rcMixNotice",false);}
-    int preferredHeight() const {return 466+(standalone?0:86)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
+    int preferredHeight() const {return 466+(standalone?0:136)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
     std::function<void()> sizeChanged;
 private:
     void timerCallback() override;
     void updateSize();
+    void armTrackRender();
+    juce::TextButton armCapture{"Arm track render"},finishCapture{"Finish capture"},cancelCapture{"Cancel capture"};
+    juce::Label captureStatus;
     void chooseRenderSource();
     void confirmFileRender(const juce::File&);
     void chooseRenderDestination(tdFile::Request);
