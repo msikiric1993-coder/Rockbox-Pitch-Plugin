@@ -10,7 +10,7 @@ I loved listening to slowed-down songs on my Sansa Clip Zip running Rockbox when
 
 ## How it works
 
-Incoming audio is buffered and played back at the speed selected by the pitch slider. Pitch and tempo change together.
+It uses the same kind of pitch shifting as Rockbox: changing playback speed changes pitch and tempo together. Incoming audio is buffered and read back more slowly or quickly, so lowering the pitch also makes the song longer.
 
 The standalone app routes sound through a virtual audio cable, processes it and sends it to your speakers or headphones. That makes it a live effect for **YouTube, Spotify, Tidal** and other apps routed through the cable.
 
@@ -18,7 +18,9 @@ The standalone app routes sound through a virtual audio cable, processes it and 
 
 When you slow live audio, new audio arrives faster than it plays. Unplayed audio accumulates, so the delay keeps growing. If you change songs, you will still hear the queued audio first.
 
-Press **Re-centre buffer** to discard that backlog and return near the current audio. History uses up to **2 GiB of RAM**; at its limit, playback pauses for three seconds, resets the buffer and continues.
+**Re-centre buffer brings playback back to the present moment** by discarding the queued audio. For example, after selecting another song, press it to hear the new song without waiting for the old backlog to play through. A small processing delay remains.
+
+History uses up to **2 GiB of RAM**; at its limit, playback pauses for three seconds, resets the buffer and continues.
 
 That delay is unavoidable when slowing a live source without discarding audio. For me, the sound is worth it.
 
@@ -34,7 +36,9 @@ Reverb can really enhance slowed-down music. Open **Effects** for **three indepe
 
 Already have a usable **Hi-Fi Cable or standard VB-CABLE**? Extract the **Portable ZIP** and run `TDSpeedPreview.exe`. No VSTHost or ASIO needed.
 
-Before Enable, audio passes through unchanged. Closing hides the app to the tray; **Exit** restores normal Windows audio. The app and installer are unsigned.
+You may initially hear silence. With the cable and listening output selected, press **Enable processing at the top of the window**; audio should then start.
+
+Closing hides the app to the tray; **Exit** restores normal Windows audio. The app and installer are unsigned.
 
 ## VST3
 
