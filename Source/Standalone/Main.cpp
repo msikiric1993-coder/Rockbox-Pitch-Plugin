@@ -80,7 +80,7 @@ public:
         editor.reset(processor.createEditor());addAndMakeVisible(*editor);
         auto* effectEditor=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());effectEditor->setStandaloneMode();
         effectEditor->sizeChanged=[this]{updateLayout();};
-        for(juce::Component* c:std::initializer_list<juce::Component*>{&cableBox,&outputBox,&enableButton,&refreshButton,&startupButton,&status,&cableLabel,&outputLabel,&audioSettings,&details,&uiSize,&diagnostics,&importNotice,&dismissImport})addAndMakeVisible(c);
+        for(juce::Component* c:std::initializer_list<juce::Component*>{&cableBox,&outputBox,&enableButton,&refreshButton,&startupButton,&status,&cableLabel,&outputLabel,&audioSettings,&details,&renderTools,&uiSize,&diagnostics,&importNotice,&dismissImport})addAndMakeVisible(c);
         setLookAndFeel(&theme);
         cableBox.setTextWhenNothingSelected("Choose virtual cable");outputBox.setTextWhenNothingSelected("Choose headphones or speakers");
         cableLabel.setText("AUDIO INPUT / VIRTUAL CABLE",juce::dontSendNotification);
@@ -92,6 +92,8 @@ public:
         enableButton.onClick=[this]{if(enabled())disable();else enable();};
         refreshButton.onClick=[this]{refresh();};
         startupButton.onClick=[this]{configureStartup();saveSettings();};
+        renderTools.setColour(juce::TextButton::buttonColourId,juce::Colour(0xffe9b66a));renderTools.setColour(juce::TextButton::textColourOffId,juce::Colour(0xff10171b));
+        renderTools.onClick=[this]{auto* e=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());e->setFilePanelExpanded(!e->filePanelExpanded());};
         audioSettings.onClick=[this]{settingsOpen=!settingsOpen;updateLayout();};details.onClick=[this]{detailsOpen=!detailsOpen;updateLayout();};
         tdUi::populate(uiSize);
         const int size=tdUi::valid((int)settings["uiScale"]);uiSize.setSelectedId(size,juce::dontSendNotification);uiSize.onChange=[this]{saveSettings();if(sizeChanged)sizeChanged();};
@@ -108,6 +110,7 @@ public:
     void updateLayout()
     {
         for(auto* c:std::initializer_list<juce::Component*>{&cableBox,&outputBox,&refreshButton,&startupButton,&cableLabel,&outputLabel})c->setVisible(settingsOpen);
+        renderTools.setButtonText(static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get())->filePanelExpanded()?"Song render v":"Song render >");
         diagnostics.setVisible(detailsOpen);details.setButtonText(detailsOpen?"Details v":"Details >");audioSettings.setButtonText(settingsOpen?"Audio settings v":"Audio settings >");
         const bool notice=(bool)settings["mixImportNotice"];importNotice.setVisible(notice);dismissImport.setVisible(notice);
         const int top=84+(settingsOpen?98:0)+(detailsOpen?40:0)+(notice?36:0);
@@ -115,7 +118,7 @@ public:
     }
     void resized() override
     {
-        auto r=getLocalBounds().reduced(24,12);auto row=r.removeFromTop(30);enableButton.setBounds(row.removeFromLeft(158));row.removeFromLeft(10);audioSettings.setBounds(row.removeFromLeft(150));row.removeFromLeft(10);details.setBounds(row.removeFromLeft(88));uiSize.setBounds(row.removeFromRight(90));
+        auto r=getLocalBounds().reduced(24,12);auto row=r.removeFromTop(30);enableButton.setBounds(row.removeFromLeft(158));row.removeFromLeft(10);audioSettings.setBounds(row.removeFromLeft(150));row.removeFromLeft(10);details.setBounds(row.removeFromLeft(88));row.removeFromLeft(10);renderTools.setBounds(row.removeFromLeft(154));uiSize.setBounds(row.removeFromRight(90));
         status.setBounds(r.removeFromTop(30));r.removeFromTop(12);
         if(settingsOpen){row=r.removeFromTop(22);cableLabel.setBounds(row.removeFromLeft(340));outputLabel.setBounds(row);row=r.removeFromTop(32);cableBox.setBounds(row.removeFromLeft(340));row.removeFromLeft(12);outputBox.setBounds(row);r.removeFromTop(8);row=r.removeFromTop(30);refreshButton.setBounds(row.removeFromLeft(100));startupButton.setBounds(row);r.removeFromTop(6);}
         if(detailsOpen)diagnostics.setBounds(r.removeFromTop(40));
@@ -210,10 +213,11 @@ public:
         else status.setText(outputId==0?"Existing cable detected. Choose your headphones or speakers to start.":"Existing cable detected / ready",juce::dontSendNotification);
     }
     bool enabled() const{return engine.running() && processor.apvts.getRawParameterValue("bypass")->load()<0.5f;}
+    void showSongTools(bool expanded){static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get())->setFilePanelExpanded(expanded);}
     bool showEffects(bool expanded){auto* e=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());e->setEffectsExpanded(expanded);return e->effectsFit();}
     void configureUiCheck(int scale,bool legacy,bool advancedOpen,bool settingsExpanded){
         tdEffects::chooseEffect(processor.apvts,0,50);tdEffects::setParameter(processor.apvts,"revOn",legacy?1:0);
-        auto* e=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());e->refreshEffects();e->setAdvanced(advancedOpen);e->setEffectsExpanded(true);
+        auto* e=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());e->setFilePanelExpanded(true);e->refreshEffects();e->setAdvanced(advancedOpen);e->setEffectsExpanded(true);
         settingsOpen=settingsExpanded;detailsOpen=settingsExpanded;uiSize.setSelectedId(scale==1?100:scale==2?125:scale==3?150:200,juce::dontSendNotification);updateLayout();if(sizeChanged)sizeChanged();
     }
     juce::var diagnosticState() const
@@ -279,7 +283,7 @@ private:
     TDSpeedLookAndFeel theme;
     std::unique_ptr<juce::AudioProcessorEditor> editor;
     juce::ComboBox cableBox,outputBox;
-    juce::TextButton enableButton{"Enable processing"},refreshButton{"Refresh"},audioSettings{"Audio settings >"},details{"Details >"},dismissImport{"OK"};
+    juce::TextButton enableButton{"Enable processing"},refreshButton{"Refresh"},audioSettings{"Audio settings >"},details{"Details >"},renderTools{"Song render >"},dismissImport{"OK"};
     juce::ComboBox uiSize;juce::Label diagnostics,importNotice;bool settingsOpen=false,detailsOpen=false;
     juce::ToggleButton startupButton{"Start with Windows"};
     juce::Label status,cableLabel,outputLabel;
@@ -438,6 +442,8 @@ public:
         if(args.size()>1 && args[0]=="--ui-check")
         {
             MainWindow testWindow(false,false);auto* report=new juce::DynamicObject();juce::var result(report);juce::Array<juce::var> layouts;const int initial=testWindow.getHeight();bool allFit=true;
+            const int songInitial=testWindow.content().getHeight();testWindow.content().showSongTools(true);const int songOpen=testWindow.content().getHeight();testWindow.content().showSongTools(false);const int songClosed=testWindow.content().getHeight();
+            const bool songSizing=songOpen>songInitial && songClosed==songInitial;report->setProperty("songPanelSizing",songSizing);
             const auto hwnd=(HWND)testWindow.getPeer()->getNativeHandle();const auto style=GetWindowLongPtrW(hwnd,GWL_STYLE);
             const bool locked=(style&WS_THICKFRAME)==0 && (style&WS_MAXIMIZEBOX)==0 && !testWindow.isResizable();report->setProperty("nativeLocked",locked);report->setProperty("nativeStyle",juce::String::toHexString((juce::int64)style));
             for(int scale=1;scale<=4;++scale){testWindow.content().configureUiCheck(scale,true,true,true);auto* root=static_cast<ScaledContent*>(testWindow.getContentComponent());root->fit();
@@ -447,7 +453,9 @@ public:
                 auto* row=new juce::DynamicObject();row->setProperty("requestedPercent",scale==1?100:scale==2?125:scale==3?150:200);row->setProperty("effectiveScale",root->effectiveScale);row->setProperty("width",testWindow.getWidth());row->setProperty("height",testWindow.getHeight());row->setProperty("fitsMonitor",fit);row->setProperty("nativeFrameFits",frameFits);row->setProperty("monitorDpi",display?display->dpi:0);layouts.add(juce::var(row));
                 juce::FileOutputStream stream(juce::File(args[1].unquoted()).getSiblingFile("RC-expanded-"+juce::String(scale==1?100:scale==2?125:scale==3?150:200)+".png"));stream.setPosition(0);stream.truncate();juce::PNGImageFormat png;png.writeImageToStream(root->createComponentSnapshot(root->getLocalBounds()),stream);
             }
-            const int expanded=testWindow.getHeight();testWindow.content().showEffects(false);const int collapsed=testWindow.getHeight();report->setProperty("initialHeight",initial);report->setProperty("expandedHeight",expanded);report->setProperty("collapsedHeight",collapsed);report->setProperty("layouts",layouts);report->setProperty("passed",locked && allFit && collapsed<expanded);
+            const int expanded=testWindow.getHeight(),expandedLogical=testWindow.content().getHeight();testWindow.content().showEffects(false);const int collapsed=testWindow.getHeight(),collapsedLogical=testWindow.content().getHeight();
+            const auto* collapsedDisplay=juce::Desktop::getInstance().getDisplays().getDisplayForRect(testWindow.getScreenBounds());allFit&=collapsedDisplay && collapsedDisplay->userArea.contains(testWindow.getScreenBounds());
+            report->setProperty("initialHeight",initial);report->setProperty("expandedHeight",expanded);report->setProperty("collapsedHeight",collapsed);report->setProperty("expandedLogicalHeight",expandedLogical);report->setProperty("collapsedLogicalHeight",collapsedLogical);report->setProperty("layouts",layouts);report->setProperty("passed",locked && allFit && collapsedLogical<expandedLogical && songSizing);
             atomicJson(juce::File(args[1].unquoted()),result);setApplicationReturnValue((bool)result["passed"]?0:1);quit();return;
         }
         if(args.size()>1 && args[0]=="--preview")

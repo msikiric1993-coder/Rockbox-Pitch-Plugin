@@ -52,6 +52,23 @@ To keep multiple processed tracks synchronized:
 
 Pitch changes during playback apply after **Stop/Play**. Grouped tracks share their buffered timing; they cannot stay aligned indefinitely with untreated tracks or different speeds.
 
+## Render complete songs (0.4.2 preview)
+
+This workflow is available in the [0.4.2 preview source](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/tree/feature/file-render). The v0.4.1 download above is the earlier release.
+
+**Drag in, tweak, render, drag out:**
+
+1. Drag an audio clip/file from your DAW into the plugin waveform, or click **Load song...**. Loading does not render.
+2. Press **Play** in **Song + effects**, then adjust pitch and effects.
+3. Click **Render from start**. The complete changed-length song appears as a yellow waveform, including effect decay.
+4. Drag that rendered waveform back into your DAW as a new clip. Mute the original and avoid applying the same processing twice.
+
+The drag-in/render/drag-out workflow has been tested successfully by the project owner. The plugin also has its own **Save As** for a separate audio file; the DAW's Save As remains a separate project/export operation. Live processing does not resize the original DAW clip.
+
+In the standalone app, open **Song render** for the same load, audition and render workflow. Its **Restart song** button rewinds the selected song and clears effect tails. Save as **AAC at a 320 kbps target (.m4a)** for compact listening files or **FLAC** for lossless PCM compression. Float/32-bit renders are converted to 24-bit PCM for FLAC, as shown in the panel. FLAC can still be substantially larger than an MP3.
+
+AAC saving needs FFmpeg installed and available on PATH. If needed, run `winget install --id Gyan.FFmpeg -e`, then restart the app. FLAC works without FFmpeg.
+
 ## Known issue: shortened DAW exports
 
 In **0.4.1**, slowing audio does not extend the DAW clip or export range. Exporting only the original song length can cut off music still waiting in the plugin's buffer.

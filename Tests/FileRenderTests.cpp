@@ -112,10 +112,24 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
     tdFile::SaveJob protect(request.destination,request.source,request.source);require(protect.startThread() && protect.waitForThreadToExit(5000) && protect.error.isNotEmpty(),"Save As overwrites original source");
     tdFile::SaveJob flac(request.destination,request.source,root.getChildFile("Saved copy.flac"));require(flac.startThread() && flac.waitForThreadToExit(5000) && flac.error.isEmpty(),"Save As FLAC failed");
     auto savedFlac=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(flac.destination));require(savedFlac && savedFlac->lengthInSamples==state.preview.audio()->samples.getNumSamples() && savedFlac->sampleRate==48000 && savedFlac->bitsPerSample==24,"Save As FLAC loses rate/depth/ending");
+    tdFile::SaveJob compactFlac(request.destination,request.source,root.getChildFile("Lossless preset.flac"),{},tdFile::SaveQuality::flac);
+    require(compactFlac.startThread() && compactFlac.waitForThreadToExit(5000) && compactFlac.error.isEmpty(),"Lossless preset failed");
+    auto lossless=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(compactFlac.destination));juce::AudioBuffer<float> losslessBlock(2,257);lossless->read(&losslessBlock,0,257,12345,true,true);
+    require(std::abs(losslessBlock.getSample(0,0)-state.preview.audio()->samples.getSample(0,12345))<1e-8,"FLAC changed source-depth PCM samples");
+    const auto floatFile=root.getChildFile("Float source.wav");
+    {juce::WavAudioFormat wav;std::unique_ptr<juce::OutputStream> stream=floatFile.createOutputStream();auto writer=wav.createWriterFor(stream,juce::AudioFormatWriterOptions{}.withSampleRate(48000).withNumChannels(2).withBitsPerSample(32).withSampleFormat(juce::AudioFormatWriterOptions::SampleFormat::floatingPoint));juce::AudioBuffer<float> samples(2,4800);for(int c=0;c<2;++c)for(int i=0;i<4800;++i)samples.setSample(c,i,.23f*std::sin(i*.017f));require(writer && writer->writeFromAudioSampleBuffer(samples,0,4800),"Float fixture failed");}
+    tdFile::SaveJob floatFlac(floatFile,request.source,root.getChildFile("Float to PCM.flac"),{},tdFile::SaveQuality::flac);require(floatFlac.startThread() && floatFlac.waitForThreadToExit(5000) && floatFlac.error.isEmpty(),"Float FLAC preset failed");
+    auto floatReader=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(floatFlac.destination));require(floatReader && floatReader->bitsPerSample==24 && floatReader->sampleRate==48000 && floatReader->lengthInSamples==4800,"Float FLAC conversion metadata wrong");
     if(argc>1) {
         tdFile::SaveJob compressed(request.destination,root.getChildFile("input.mp3"),root.getChildFile("Saved copy.mp3"));
         require(compressed.startThread() && compressed.waitForThreadToExit(15000) && compressed.error.isEmpty(),"Save As compressed failed");
         require(compressed.destination.getSize()<request.destination.getSize()/3,"Compressed Save As unexpectedly large");
+        tdFile::SaveJob aac(request.destination,root.getChildFile("missing original.wav"),root.getChildFile("High quality.m4a"),{},tdFile::SaveQuality::aac320);
+        require(aac.startThread() && aac.waitForThreadToExit(15000) && aac.error.isEmpty(),"AAC 320 preset needs original metadata or failed");
+        require(aac.destination.getSize()<request.destination.getSize()/3,"AAC preset unexpectedly large");
+        tdFile::LoadJob decoded(aac.destination);require(decoded.startThread() && decoded.waitForThreadToExit(15000) && decoded.error.isEmpty() && decoded.audio && decoded.audio->sampleRate==48000 && std::abs(decoded.audio->duration()-state.preview.audio()->duration())<.1,"AAC export lost duration or rate");
+        std::cout<<"AAC 320 output bytes="<<aac.destination.getSize()<<" duration="<<state.preview.audio()->duration()<<" path="<<aac.destination.getFullPathName()<<"\n";
+
     }
     {
         TDSpeedVSTAudioProcessor dropTarget(2);auto droppedEditor=std::unique_ptr<juce::AudioProcessorEditor>(dropTarget.createEditor());
@@ -145,6 +159,10 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         const int normalHeight=ui->getHeight();ui->setEffectsExpanded(true);require(ui->getHeight()>normalHeight,"Effects expansion does not grow waveform editor");ui->setEffectsExpanded(false);
         for(float scale:{.5f,1.f,1.5f,2.f}){ui->setUiScale(scale);require(ui->effectsFit(),"Scaled preview clips effect controls");}ui->setUiScale(1);
         juce::FileOutputStream image{juce::File(argv[2])};image.setPosition(0);image.truncate();juce::PNGImageFormat png;png.writeImageToStream(editor->createComponentSnapshot(editor->getLocalBounds()),image);
+        ui->setStandaloneMode();const int closed=ui->getHeight();ui->setFilePanelExpanded(true);require(ui->getHeight()==closed+310,"Song panel expansion height wrong");
+        state.setAuditionMode(2);state.preview.play();ui->setFilePanelExpanded(false);require(state.auditionMode.load()==0 && !state.preview.playing && ui->hasSource() && ui->hasPreview(),"Closing song panel does not restore live input or preserve audio");ui->setFilePanelExpanded(true);require(state.auditionMode.load()==2 && !state.preview.playing,"Reopening song panel loses last mode or autoplays");
+        juce::FileOutputStream standaloneImage{juce::File(argv[2]).getSiblingFile("song-panel-editor.png")};standaloneImage.setPosition(0);standaloneImage.truncate();png.writeImageToStream(editor->createComponentSnapshot(editor->getLocalBounds()),standaloneImage);
+
     }
     std::cout<<"PASS file render lengths/final sample, 44.1/48/96 and 16/24/32-bit PCM, wet decay, cancellation, load without render, source pitch/effects/mono/pause/restart, in-memory rendering, audio file drop, preview playback/seek/rate/end, offline isolation, waveform zoom/scaling/reopening and Save As WAV/FLAC/overwrite/failure/source protection; fixtures "<<root.getFullPathName()<<"\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL "<<e.what()<<"\n";return 1;}}

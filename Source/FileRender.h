@@ -23,13 +23,16 @@ public:
     juce::File source;std::unique_ptr<tdPreview::Audio> audio;juce::String error;
     std::atomic<bool> done{false};
 };
+enum class SaveQuality { original, aac320, flac };
+bool aacAvailable();
 class SaveJob : public juce::Thread {
 public:
-    SaveJob(juce::File rendered,juce::File original,juce::File destination,std::shared_ptr<const tdPreview::Audio> lease={}):Thread("TDSpeed save rendered audio"),rendered(rendered),original(original),destination(destination),lease(std::move(lease)){}
+    SaveJob(juce::File rendered,juce::File original,juce::File destination,std::shared_ptr<const tdPreview::Audio> lease={},SaveQuality quality=SaveQuality::original):Thread("TDSpeed save rendered audio"),rendered(rendered),original(original),destination(destination),lease(std::move(lease)),quality(quality){}
     ~SaveJob() override {signalThreadShouldExit();stopThread(-1);}
     void run() override;
     juce::File rendered,original,destination;
     std::shared_ptr<const tdPreview::Audio> lease;
+    SaveQuality quality;
     juce::String error;
     std::atomic<bool> done{false};
 };

@@ -14,6 +14,7 @@ static juce::File executable(const juce::String& name) {
     for(auto path:paths){auto file=juce::File(path.unquoted()).getChildFile(name);if(file.existsAsFile())return file;}
     return {};
 }
+bool aacAvailable(){return executable("ffmpeg.exe").existsAsFile();}
 static juce::String run(const juce::StringArray& args,const std::function<bool()>& cancelled,bool capture=true) {
     juce::ChildProcess process;if(!process.start(args,capture?(juce::ChildProcess::wantStdOut|juce::ChildProcess::wantStdErr):0))throw std::runtime_error("Could not start FFmpeg/ffprobe");
     juce::String output;char bytes[1024];
@@ -180,6 +181,8 @@ void SaveJob::run() {
         if(destination==original || destination==rendered)throw std::runtime_error("Choose a new filename; the original and temporary render are preserved");
         if(!rendered.existsAsFile())throw std::runtime_error("Rendered audio is missing; render the source again");
         juce::TemporaryFile output(destination);const auto ext=destination.getFileExtension().toLowerCase();
+        if(quality==SaveQuality::aac320 && ext!=".m4a")throw std::runtime_error("Choose an .m4a filename for AAC 320 kbps");
+        if(quality==SaveQuality::flac && ext!=".flac")throw std::runtime_error("Choose a .flac filename for lossless PCM");
         if(ext==".wav") {
             if(!rendered.copyFileTo(output.getFile()))throw std::runtime_error("Could not copy WAV; check disk space and permissions");
         } else if(ext==".flac" || ext==".aif" || ext==".aiff") {
@@ -188,16 +191,27 @@ void SaveJob::run() {
             if(!reader)throw std::runtime_error("Could not open rendered WAV");
             std::unique_ptr<juce::AudioFormat> format;
             if(ext==".flac")format=std::make_unique<juce::FlacAudioFormat>();else format=std::make_unique<juce::AiffAudioFormat>();
-            if(reader->usesFloatingPointData || !format->getPossibleBitDepths().contains((int)reader->bitsPerSample))throw std::runtime_error("Use WAV to preserve this render's bit depth");
+            const bool pcmConversion=quality==SaveQuality::flac && (reader->usesFloatingPointData || reader->bitsPerSample>24);
+            const int bits=pcmConversion?24:(int)reader->bitsPerSample;
+            if((reader->usesFloatingPointData && !pcmConversion) || !format->getPossibleBitDepths().contains(bits))throw std::runtime_error("Use WAV to preserve this render's bit depth");
             std::unique_ptr<juce::OutputStream> stream=output.getFile().createOutputStream();
-            auto writer=format->createWriterFor(stream,juce::AudioFormatWriterOptions{}.withSampleRate(reader->sampleRate).withNumChannels((int)reader->numChannels).withBitsPerSample((int)reader->bitsPerSample));
+            auto writer=format->createWriterFor(stream,juce::AudioFormatWriterOptions{}.withSampleRate(reader->sampleRate).withNumChannels((int)reader->numChannels).withBitsPerSample(bits).withQualityOptionIndex(5));
             if(!writer)throw std::runtime_error("Could not create saved file");
             juce::AudioBuffer<float> block((int)reader->numChannels,65536);
             for(int64_t offset=0;offset<reader->lengthInSamples;offset+=65536) {
                 if(threadShouldExit())throw std::runtime_error("Save cancelled");
                 const int n=(int)juce::jmin<int64_t>(65536,reader->lengthInSamples-offset);
-                if(!reader->read(&block,0,n,offset,true,true) || !writer->writeFromAudioSampleBuffer(block,0,n))throw std::runtime_error("Save failed; check disk space");
+                if(!reader->read(&block,0,n,offset,true,true))throw std::runtime_error("Cannot read rendered audio");
+                if(pcmConversion)for(int c=0;c<block.getNumChannels();++c)for(int i=0;i<n;++i)if(!std::isfinite(block.getSample(c,i)) || std::abs(block.getSample(c,i))>1.f)throw std::runtime_error("Output exceeds 0 dBFS. Reduce Final output or enable Protect peaks, then render again before saving FLAC");
+                if(!writer->writeFromAudioSampleBuffer(block,0,n))throw std::runtime_error("Save failed; check disk space");
             }
+        } else if(quality==SaveQuality::aac320) {
+            const auto ffmpeg=executable("ffmpeg.exe");
+            if(!ffmpeg.existsAsFile())throw std::runtime_error("AAC saving needs FFmpeg. Install Gyan.FFmpeg with winget, restart the app, or choose FLAC");
+            juce::StringArray args{ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",rendered.getFullPathName()};
+            if(original.existsAsFile()){args.addArray({"-i",original.getFullPathName(),"-map_metadata","1"});}
+            args.addArray({"-map","0:a:0","-c:a","aac","-profile:a","aac_low","-b:a","320k","-movflags","+faststart","-f","ipod",output.getFile().getFullPathName()});
+            tdFile::run(args,[this]{return threadShouldExit();},false);
         } else {
             const auto ffmpeg=executable("ffmpeg.exe"),ffprobe=executable("ffprobe.exe");
             if(!ffmpeg.existsAsFile() || !ffprobe.existsAsFile())throw std::runtime_error("Compressed saving needs FFmpeg and ffprobe on PATH. Save WAV instead, or install FFmpeg");
