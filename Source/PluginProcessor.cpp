@@ -81,6 +81,8 @@ void TDSpeedVSTAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBl
     rbR.assign((size_t)rbSize, 0.0f);
     writeIdx = 0;
     writtenSamples = 0;
+    lastSignalSourceFrame = -1;
+    bufferedTailSeconds.store(0.0, std::memory_order_relaxed);
     lastEffRate = std::pow(2.0f, pSemitones->load() / 12.0f);
     rateSmoothing = 1.0f - std::exp(-1.0f / static_cast<float>(fs * 0.001));
     resetWasHigh = false;
@@ -182,6 +184,7 @@ void TDSpeedVSTAudioProcessor::applyPitchVarispeed(juce::AudioBuffer<float>& buf
         }
 
         // Capture continues during recovery; the restart reads fresh history.
+        if (inL[n] != 0.0f || inR[n] != 0.0f) lastSignalSourceFrame = writtenSamples;
         rbL[(size_t)writeIdx] = inL[n];
         rbR[(size_t)writeIdx] = inR[n];
         if (++writeIdx == rbSize) writeIdx = 0;
@@ -225,6 +228,7 @@ void TDSpeedVSTAudioProcessor::applyPitchVarispeed(juce::AudioBuffer<float>& buf
         readIdx += lastEffRate;
     }
     flushRack(N);
+    updateBufferedTail();
     backlogSeconds.store(static_cast<float>((writtenSamples - readIdx) / fs), std::memory_order_relaxed);
     bufferStatus.store(pauseReason, std::memory_order_relaxed);
     pauseSeconds.store(static_cast<float>(pauseSamplesRemaining / fs), std::memory_order_relaxed);
@@ -294,12 +298,14 @@ void TDSpeedVSTAudioProcessor::processBlockBypassed(juce::AudioBuffer<float>& bu
     {
         if (pauseReason == 0 && (double)writtenSamples - readIdx >= rbSize - 4)
             beginRecoveryPause(1);
+        if (left[n] != 0.0f || right[n] != 0.0f) lastSignalSourceFrame = writtenSamples;
         rbL[(size_t)writeIdx] = left[n];
         rbR[(size_t)writeIdx] = right[n];
         if (++writeIdx == rbSize) writeIdx = 0;
         ++writtenSamples;
         if (pauseReason != 0) advanceRecoveryPause();
     }
+    updateBufferedTail();
     backlogSeconds.store(static_cast<float>((writtenSamples - readIdx) / fs));
     bufferStatus.store(pauseReason);
     pauseSeconds.store(static_cast<float>(pauseSamplesRemaining / fs));
@@ -393,7 +399,19 @@ juce::AudioProcessorValueTreeState::ParameterLayout TDSpeedVSTAudioProcessor::cr
 }
 
 //==============================================================================
-double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {return pBypass->load()>.5f?0:effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
+void TDSpeedVSTAudioProcessor::updateBufferedTail() noexcept
+{
+    // Silence after a clip must drain this estimate, not create an ever-growing
+    // tail. Track actual buffered signal separately from incoming timeline time.
+    double remaining = 0.0;
+    const double rate = dawRender ? dawRate : (double)lastEffRate;
+    if (lastSignalSourceFrame >= 0 && lastSignalSourceFrame >= writtenSamples - rbSize
+        && std::isfinite(rate) && rate > 0.0 && fs > 0.0)
+        remaining = std::max(0.0, (lastSignalSourceFrame + 2.0 - readIdx) / (fs * rate));
+    bufferedTailSeconds.store(remaining, std::memory_order_relaxed);
+}
+
+double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {return (isDawMode()?groupBypassed():pBypass->load()>.5f)?0:getBufferedTailSeconds()+effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
 void TDSpeedVSTAudioProcessor::finishOutput(juce::AudioBuffer<float>& buffer)
 {
     float db=pMasterOutput->load();if(!std::isfinite(db))db=0;masterGain.setTargetValue(juce::Decibels::decibelsToGain(juce::jlimit(-24.0f,12.0f,db)));
@@ -443,7 +461,7 @@ juce::String TDSpeedVSTAudioProcessor::dawStatusText() const {
         }
     }
 }
-void TDSpeedVSTAudioProcessor::freshDawHistory(){writeIdx=0;writtenSamples=0;readIdx=-targetBacklog;pauseReason=0;pauseSamplesRemaining=0;springVerb.reset();effects.reset();reverbWasOn=false;backlogSeconds=.25f;bufferStatus=0;pauseSeconds=0;}
+void TDSpeedVSTAudioProcessor::freshDawHistory(){writeIdx=0;writtenSamples=0;lastSignalSourceFrame=-1;bufferedTailSeconds=0;readIdx=-targetBacklog;pauseReason=0;pauseSamplesRemaining=0;springVerb.reset();effects.reset();reverbWasOn=false;backlogSeconds=.25f;bufferStatus=0;pauseSeconds=0;}
 void TDSpeedVSTAudioProcessor::reset(){
     if(!isDawMode())return;
     dawHostReset=true;dawStatus=1;auto* g=syncGroup.load();if(!g)g=&solo;

@@ -31,6 +31,7 @@ public:
     bool acceptsMidi() const override { return false; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override;
+    double getBufferedTailSeconds() const noexcept { return bufferedTailSeconds.load(std::memory_order_relaxed); }
     float getOutputPeak() const noexcept {return outputPeak.load();}
 
     int getNumPrograms() override { return 1; }
@@ -95,6 +96,9 @@ private:
     int      rbSize = 0;
     int      writeIdx = 0;
     std::int64_t writtenSamples = 0;
+    std::int64_t lastSignalSourceFrame = -1;
+    std::atomic<double> bufferedTailSeconds { 0.0 };
+    void updateBufferedTail() noexcept;
     const double requestedHistorySeconds;
     double   readIdx = 0.0;            // fractional
     float    lastEffRate = 1.0f;       // smoothed effective rate

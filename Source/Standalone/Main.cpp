@@ -334,7 +334,7 @@ class Application : public juce::JUCEApplication, private juce::Timer
 {
 public:
     const juce::String getApplicationName()override{return "TDSpeed Preview";}
-    const juce::String getApplicationVersion()override{return "0.4.1";}
+    const juce::String getApplicationVersion()override{return "0.4.2-preview";}
     bool moreThanOneInstanceAllowed()override{return true;} // CLI diagnostics/watchdog are separate; GUI mutex below.
     void initialise(const juce::String& parameters)override
     {

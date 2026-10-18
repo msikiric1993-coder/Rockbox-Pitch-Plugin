@@ -61,6 +61,33 @@ int main(){juce::ScopedJuceInitialiser_GUI gui;try{
     double unexpectedDry=0;for(float v:wetAfterPrepare)unexpectedDry+=v*v;
     require(unexpectedDry==0,"Re-prepare leaves a stale group host-bypass vote");
     juce::AudioBuffer<float> zeroBlock(2,0);lifecycle.processBlockBypassed(zeroBlock,midi);
+    // A finite clip's final marker must play during a sufficiently extended
+    // render, and reported buffered tail must decrease as silence drains it.
+    for(double sr : {44100.,48000.,96000.}) for(float semi : {-12.f,-3.f,0.f}) {
+        TDSpeedVSTAudioProcessor exportTest(8);Clock exportClock;exportTest.setPlayHead(&exportClock);
+        set(exportTest,"timingMode",1);set(exportTest,"semitones",semi);exportTest.prepareToPlay(sr,257);
+        const double speed=std::pow(2.0,(double)semi/12.0);
+        const int sourceFrames=(int)sr;
+        juce::AudioBuffer<float> audio(2,257);juce::MidiBuffer events;
+        auto feed=[&](int start,int count,bool source){
+            for(int offset=0;offset<count;offset+=257){const int n=juce::jmin(257,count-offset);audio.setSize(2,n,false,false,true);audio.clear();
+                if(source)for(int c=0;c<2;++c)for(int i=0;i<n;++i)if(start+offset+i>=sourceFrames-8)audio.setSample(c,i,.25f);
+                exportClock.sample=start+offset;watch=true;exportTest.processBlock(audio,events);watch=false;
+            }
+        };
+        feed(0,sourceFrames,true);
+        const double tail=exportTest.getBufferedTailSeconds();
+        const double expected=(1.25/speed)-1.0;
+        require(std::abs(tail-expected)<.001,"Buffered export tail omits pitch backlog or rate conversion");
+        require(exportTest.getTailLengthSeconds()>=tail,"Host tail omits buffered audio");
+        const int drainFrames=(int)std::ceil((tail+.05)*sr);double markerEnergy=0;
+        for(int offset=0;offset<drainFrames;offset+=257){const int n=juce::jmin(257,drainFrames-offset);audio.setSize(2,n,false,false,true);audio.clear();exportClock.sample=sourceFrames+offset;
+            watch=true;exportTest.processBlock(audio,events);watch=false;
+            for(int i=0;i<n;++i)markerEnergy+=audio.getSample(0,i)*audio.getSample(0,i);
+        }
+        require(markerEnergy>.01,"Extended export loses the final source marker");
+        require(exportTest.getBufferedTailSeconds()==0,"Silence creates an endless reported pitch tail");
+    }
     require(allocations==0,"DAW audio callback allocates");
     auto editor=std::unique_ptr<juce::AudioProcessorEditor>(a.createEditor());auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(true);ui->setAdvanced(true);for(float scale:{.5f,1.0f,1.25f,1.5f,2.0f}){ui->setUiScale(scale);require(!ui->isResizable() && ui->effectsFit(),"Scaled editor layout invalid");}editor->setSize(400,300);require(ui->effectsFit(),"Host-imposed viewport clips effects");
     std::cout<<"PASS DAW null across callback sizes/order, offline, stops/seeks/loops, latched pitch, linked bypass, recovery, late/skipped history, migration, no allocations, scaling\n";return 0;
