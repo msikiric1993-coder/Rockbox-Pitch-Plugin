@@ -1,37 +1,57 @@
-# Rockbox Pitch Plugin — TDSpeed 0.4.1
+# Rockbox Pitch Plugin
 
-Portable Windows listening app and separate VST3. This version adds synchronized DAW playback and whole-interface scaling. Version 0.4.0 is preserved. [Download the installer, portable application, VST3 and source](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/releases/tag/v0.4.1).
+A Windows listening app and VST3 inspired by Rockbox's pitch control: lower pitch slows the music down; higher pitch speeds it up. The song's length changes too.
 
-## Two DAW tracks
+I loved listening to slowed-down songs on my Sansa Clip Zip running Rockbox when I was younger. I couldn't find the same experience as a live effect on PC, so I made this.
 
-Load TDSpeedPreview on each track. Select Follow DAW on both. With playback stopped, press Create group on the first instance; select that group in Join group on the second. Set pitch on the leader. Followers share the same speed, while their effects and output trims remain independent. Press Play: both start fresh at the DAW cursor. Stop freezes history; Play, seeks and loop jumps start a fresh epoch. Linked pitch changes during playback remain pending until Stop/Play. Use the plugin's Bypass group control to switch both tracks to dry; internal synchronized processing continues behind bypass.
+**[Download the first release](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/releases/tag/v0.4.1)** | Windows 11 x64
 
-Groups operate inside one host process, with up to 32 members. They do not link separate bridged processes. All members must process the same transport run. Late or suspended instances show Restart playback to synchronize rather than invent missing audio. Hosts that completely skip a bypassed plugin can cause this warning when it returns; use Bypass group inside the plugin. Process linked tracks together for offline rendering. A single plugin on their common bus remains an alternative.
+![Plugin interface](docs/images/interface.png)
 
-Rockbox-style pitch also changes speed. Processed tracks using one speed can align with each other; they cannot stay aligned indefinitely with untreated tracks or different speeds. Growing backlog is intentional and cannot be removed by fixed DAW delay compensation. Hermite interpolation, 2 GiB history and the three-second limit recovery remain.
+## How it works
 
-## Listening app
+Incoming audio is buffered and played back at the speed selected by the pitch slider. Pitch and tempo change together.
 
-Install with TDSpeed-Setup-0.4.1.exe, or extract the portable ZIP and run TDSpeedPreview.exe. It always uses Listening mode and retains automatic dry forwarding, held playback through Disable/Enable, effects and tray recovery. Existing cables are reused. Preview preferences, racks, startup and recovery files are separate; copies are imported from TDSpeed RC or the older app. Closing hides to tray; Exit restores owned Windows routes. Startup registration defaults off.
+The standalone app routes sound through a virtual audio cable, processes it and sends it to your speakers or headphones. That makes it a live effect for **YouTube, Spotify, Tidal** and other apps routed through the cable.
 
-## Window and controls
+## The trade-off: growing delay
 
-Choose Auto or 50â€“200% in 25% steps. Auto uses DPI-aware monitor space; manual percentages are retained, temporarily reduced to fit expanded controls and restored when space is available. Effects and Advanced expand/shrink automatically. Controls stay in one fixed layout. The plugin requests fixed content dimensions using VST3 sizing; a host-imposed viewport scales the entire interface without clipping. The DAW owns its outer frame.
+When you slow live audio, new audio arrives faster than it plays. Unplayed audio accumulates, so the delay keeps growing. If you change songs, you will still hear the queued audio first.
 
-Mix 0% is dry and 100% is fully processed. Wet Level, Slot Output and Final Output retain their calibrated 0.4.0 behavior. Saved racks affect effects/output only, not timing mode or group membership. Save/Load/overwrite are retained; A/B remains removed.
+Press **Re-centre buffer** to discard that backlog and return near the current audio. History uses up to **2 GiB of RAM**; at its limit, playback pauses for three seconds, resets the buffer and continues.
 
-## Build and source
+That delay is unavoidable when slowing a live source without discarding audio. For me, the sound is worth it.
 
-The complete working source and vendored dependencies are included in this repository and the corresponding-source ZIP. Use Visual Studio 2022 x64, CMake and the windows-release preset. Build TDSpeedApp, TDSpeedVST_VST3 and tests. Tools/Build-Standalone.ps1 builds, tests and packages the installer, portable application, VST3 and source. See [build instructions](docs/BUILD.md). Read [validation notes](docs/VALIDATION.md) and the release’s Validation-report.txt for passed checks and any remaining host-specific limitations.
+## Effects
 
-## Installation
+Reverb can really enhance slowed-down music. Open **Effects** for **three independent slots** with reverb, delay, chorus and more, then save combinations under **Saved racks**. Older settings can also retain a fourth, legacy reverb such as PSX. **Mix** is dry at 0% and fully processed at 100%.
 
-Windows 11 x64. The app and plugin remain named TDSpeedPreview to preserve 0.4.1 sessions and preferences. Older TDSpeed RC installations are separate. Install only one copy of TDSpeedPreview.vst3 in your DAW scan paths; remove a manually copied preview before installing the same bundle elsewhere. The standalone installer does not install the VST3 automatically: extract the separate VST3 ZIP and copy its complete bundle to your VST3 folder.
+## Install and listen
 
-The listening app needs a virtual audio cable; the VST3 does not. Setup detects existing usable Hi-Fi Cable or standard VB-CABLE and only offers the original signed standard VB-CABLE when none is installed. VB-CABLE is donationware by [VB-Audio](https://vb-cable.com); [donations and licences](https://vb-audio.com/Services/licensing.htm) support its developer. TDSpeed itself and its installer are unsigned.
+1. Download and run **TDSpeed-Setup-0.4.1.exe**. It reuses a supported existing cable or installs the included standard VB-CABLE when needed. Restart Windows if requested.
+2. Open **TDSpeedPreview**. In **Audio settings**, select the cable and your physical listening output, such as your DAC, audio interface or headphones.
+3. Play some music, press **Enable processing** and move the pitch slider.
 
-![TDSpeed interface](docs/images/interface.png)
+Already have a usable **Hi-Fi Cable or standard VB-CABLE**? Extract the **Portable ZIP** and run `TDSpeedPreview.exe`. No VSTHost or ASIO needed.
 
-## Licence and credits
+Before Enable, audio passes through unchanged. Closing hides the app to the tray; **Exit** restores normal Windows audio. The app and installer are unsigned.
 
-TDSpeed is distributed under AGPL-3.0; dependencies retain their respective licences. See [dependency revisions and adaptations](Source/ThirdParty/VERSIONS.md), the root LICENSE and packaged Licences directory. This is a Rockbox-inspired coupled pitch/speed effect, not an official Rockbox product or a bit-exact port of its audio pipeline.
+## VST3
+
+Extract the **VST3 ZIP**, copy the complete `TDSpeedPreview.vst3` bundle into your DAW's VST3 folder and rescan. The plugin does **not** need a virtual cable.
+
+To keep multiple processed tracks synchronized:
+
+1. Select **Follow DAW** in each instance, with playback stopped.
+2. Click **Create group** on one instance. It becomes the group leader. Use **Join group** on the others.
+3. Set pitch on the leader and press Play. All members share pitch and bypass, while their effects and output levels remain independent.
+
+Pitch changes during playback apply after **Stop/Play**. Grouped tracks share their buffered timing; they cannot stay aligned indefinitely with untreated tracks or different speeds.
+
+## Source and credits
+
+[Build instructions](docs/BUILD.md) | [Effect guide](docs/EFFECTS.md) | [Troubleshooting](docs/TROUBLESHOOTING.md)
+
+[AGPL-3.0](LICENSE), with [third-party engine licences](Source/ThirdParty/VERSIONS.md). An independent Rockbox-inspired project, not an official release or bit-exact port.
+
+The bundled standard **VB-CABLE** is donationware by [VB-Audio](https://vb-cable.com). [Donations and licences](https://vb-audio.com/Services/licensing.htm) support its developer.
