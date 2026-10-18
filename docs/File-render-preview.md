@@ -1,27 +1,44 @@
-# Render source file - waveform preview
+# Load, play, tweak and render
 
-1. Set pitch, effects and output level. Click the yellow **Render source file** button near the top and choose the original song.
-2. Confirm **Render**. The complete slowed/faster song appears below as a yellow waveform, including effect decay. No save dialog or DAW bounce is needed.
-3. Use **Play / Pause**, **Stop**, click to seek, **Ctrl + mouse wheel** to zoom, and the horizontal scrollbar/wheel to move around. **Fit** shows the full duration.
-4. Drag the waveform onto a DAW track. The dropped object is the rendered WAV. Mute the original and remove/bypass the original processing to avoid applying pitch/effects twice.
-5. **Save As...** is optional. Choose WAV for an exact copy, or a supported compressed/lossless format. Saving does not render or apply the effects again.
+1. **Load song...**, or drop one audio file into the waveform. Loading prepares the original song; it does not render or save it.
+2. In **Song + effects**, press **Play** and adjust pitch, effects and output. Pause holds position; Stop rewinds; **Restart song** restarts and clears effect tails. Turn off Bypass to hear processing.
+3. Click the yellow **Render from start** when ready. It renders the whole loaded song from the beginning, plus effect decay, independently of the playback cursor and live buffer. No buffer reset is needed.
+4. The selector switches to **Rendered file**. Listen to the result, then drag its waveform into the DAW. Mute the original and avoid applying pitch/effects twice.
+5. **Save As...** saves separately. In Song + effects it renders current settings first if necessary; in Rendered file it saves that result. The original source is preserved.
 
-**UI size** is visible beside the title: Auto or 50-200%. The waveform and its rulers scale with the rest of the interface. Effects expansion remains automatic. The render and waveform survive closing/reopening this editor while its plugin instance stays loaded; closing the editor stops audition playback.
+Editing controls after rendering returns audition to the source at the corresponding position. The earlier render remains available for comparison as **Rendered (earlier)** until replaced. **Live input** returns to host/global audio processing. After file audition, restart DAW playback if a linked group reports missing history.
+
+## Audio from a DAW
+
+The waveform and editor accept supported audio-file drops. A host must supply a real file rather than an internal track object. SONAR documents dragging selected clips outside the application, including selection and clip effects: [Cakewalk documentation](https://legacy.cakewalk.com/Documentation?help=NewFeatures.125.html&language=3&product=SONAR). The exchange with the installed Sonar still needs a user check. Explorer and **Load song...** work independently of host clip-drag support.
+
+The plugin loads the file supplied by the host. Clip edits and upstream effects are included only if the host bakes them into that file. Loaded PCM remains usable for playback and WAV rendering if the original temporary file disappears. The plugin cannot request arbitrary tracks directly.
+
+## Waveform and interface
+
+- Source waveform: click or drag to seek. Rendered waveform: drag to export the processed WAV.
+- **Ctrl + wheel** zooms around the cursor. Wheel or scrollbar pans. **Double-click** shows the whole song; Fit has been removed.
+- The waveform uses an I-beam cursor and highlights accepted file drags.
+- **UI SIZE** offers Auto and 50-200%; all controls and the waveform scale together. Effects expand automatically.
+
+The song/render survive editor reopening while that plugin instance remains loaded. Closing the editor pauses audition. Audio is session-only and is not embedded in DAW project state.
 
 ## Sound and files
 
-The renderer uses the existing Hermite pitch processing, current effect rack and final output level. It renders from the selected file's beginning and calculates the full changed duration, without the live startup reserve or live-history recovery. It includes this instance's settings at confirmation time, including pending group pitch; changing knobs afterward does not change the already-rendered preview. Plugin bypass does not cancel explicit file rendering; rack/slot bypass is respected. Other plugins, DAW clip edits, automation and other group members are not included.
+Source audition uses Hermite varispeed and current effects without accumulating a live-input backlog. Its cursor remains continuous when pitch changes. Rendering snapshots the loaded source and controls and starts at frame zero, without the live startup reserve or history recovery.
 
-The intermediate WAV retains the source sample rate, channel count and supported decoded bit depth. Preview audition uses a separate immutable PCM buffer (maximum 1 GiB) and adapts playback to the host's sample rate without changing speed. The already-rendered output is auditioned through the plugin's host output; live effects/output gain are not applied twice. The host audio engine must process this plugin to hear it. Audition is excluded from offline exports. Upstream/downstream host routing, track mute and downstream plugins still apply.
+Audition uses the host output and requires host callbacks. Source effects run at the host rate; final rendering retains the source rate. Rendered playback converts to the host rate and does not reapply pitch, effects or gain. Audition is excluded from offline host exports. Downstream host plugins, routing and mute still apply.
 
-Temporary renders are cached under `%LOCALAPPDATA%\TDSpeed Preview\Rendered audio`. Undragged files are removed when replaced or their instance is destroyed (an active save keeps its file alive). A file used for an external drag is retained because some hosts reference it instead of copying it. Use the DAW's copy/import-to-project option or Save As for long-term project storage. Do not delete a referenced cache file. No cached audio is embedded into plugin project state.
+Source and rendered audition each have a 1 GiB PCM limit, in addition to live history. Decoding, file operations, waveform preparation and buffer retirement happen outside audio callbacks. Source samples are validated before playback.
 
-Save As suggests the original extension. WAV copies the existing rendered samples exactly. FLAC/AIFF preserve supported PCM depth/rate; incompatible formats fail explicitly. MP3, M4A/AAC, OGG and Opus use external FFmpeg/ffprobe (already installed on this PC, not bundled) and detected source bitrate, bounded to 32-320 kbit/s. With a PCM source, compressed saving defaults to 192 kbit/s. Codec constraints can impose their own sample rate. Slower songs are proportionally longer/larger; compressed saving avoids keeping a large final WAV. Lossy encoding adds an encoding generation. Cancellation/failure preserves existing target files. The original source cannot be overwritten.
+The temporary render is WAV at the source/decoded rate, compatible depth and channel count. Save As suggests the original extension. WAV copies the rendered file exactly; FLAC/AIFF preserve compatible PCM depth/rate. MP3/M4A/AAC/OGG/Opus use external FFmpeg/ffprobe, installed on this PC but not bundled. Saving uses detected original bitrate bounded to 32-320 kbit/s, or 192 kbit/s for PCM sources. Codec constraints can impose their own rate. Compressed saving needs the original file for metadata; WAV saving does not. Lossy re-encoding adds an encoding generation. Slower files are proportionally longer/larger.
 
-The earlier Arm track render / Fast Bounce workflow is removed from this build. Ordinary live VST processing still cannot extend the DAW's clip or export boundary; use this independent renderer when a complete slowed song is needed.
+Cached renders live under `%LOCALAPPDATA%\TDSpeed Preview\Rendered audio`. Undragged files are cleaned up when replaced or the instance is destroyed; saves retain their input. Dragged files remain because some hosts reference them. Import/copy them into the project or Save As for permanent storage. Do not delete files a DAW still references.
 
-## Validation boundary
+Live VST processing still cannot resize a DAW clip or export range. This renderer creates the complete changed-length file separately. Existing live processing, groups, effects and racks remain available.
 
-Processor/history, actual VST3, buffered-tail, DAW synchronization and file-render tests pass. Coverage includes 44.1/48/96 kHz; 16/24/32-bit PCM; full ending; wet decay; cancellation; audition play/pause/seek/stop/end/rate conversion; offline isolation; concurrent buffer replacement with zero callback allocations; waveform zoom bounds; expansion/scaling/reopening; Save As WAV/FLAC/overwrite/failure/source protection; and compressed export. The UI snapshot was visually reviewed. Twelve normal live renders remain byte-identical to the accepted build.
+## Validation
 
-Native Sonar/Audacity drag/drop, save-dialog and stopped-host audition behavior still need a user check. No new sanitizer pass, hardware soak or stable release publication is claimed.
+Five targeted suites pass: processor/history, actual VST3, buffered tail, DAW synchronization and file rendering. Coverage includes loading without rendering, file-drop loading, pitch changes, effects, pause/restart/mono, unchanged live history, RAM/disk render identity, vanished temporary sources, full endings, rate/depth, wet decay, allocation-free callbacks including source effects/restarts, waveform zoom/scaling/reopening, saving and compressed formats. Twelve live comparison renders remain byte-identical to the accepted build.
+
+Actual Sonar/Audacity drag negotiation, native chooser and stopped-host audition remain for user checks. No new sanitizer run, hardware soak, installer or stable release publication is claimed.

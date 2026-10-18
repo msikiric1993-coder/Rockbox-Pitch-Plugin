@@ -239,7 +239,8 @@ void TDSpeedVSTAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ignoreUnused(midi);
     juce::ScopedNoDenormals noDenormals;
 
-    if (buffer.getNumSamples() == 0 || rbSize <= 0) return;
+    if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0 || rbSize <= 0) return;
+    if(processSongAudition(buffer,false))return;
     if(isDawMode()){processDaw(buffer,false);return;}
     if(legacyResetRequested.exchange(false)){springVerb.reset();legacyFault.store(false);}
     const bool resetHigh = pReset->load() > 0.5f;
@@ -288,6 +289,7 @@ void TDSpeedVSTAudioProcessor::processBlockBypassed(juce::AudioBuffer<float>& bu
     juce::ignoreUnused(midi);
     juce::ScopedNoDenormals noDenormals;
     if (buffer.getNumSamples() == 0 || buffer.getNumChannels() == 0 || rbSize <= 0) return;
+    if(processSongAudition(buffer,true))return;
     if(isDawMode()){processDaw(buffer,true);return;}
     if (rbSize <= 0 || buffer.getNumChannels() == 0) return;
     if (!wasBypassed) { springVerb.reset(); effects.reset(); }
@@ -411,15 +413,34 @@ void TDSpeedVSTAudioProcessor::updateBufferedTail() noexcept
     bufferedTailSeconds.store(remaining, std::memory_order_relaxed);
 }
 
-double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {return (isDawMode()?groupBypassed():pBypass->load()>.5f)?0:getBufferedTailSeconds()+effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
+double TDSpeedVSTAudioProcessor::getTailLengthSeconds() const {
+    if(!isNonRealtime()) {
+        const int mode=auditionMode.load();
+        if(mode==2)return preview.playing.load()?std::max(0.,preview.durationSeconds.load()-preview.position.load()):0.;
+        if(mode==1){const double speed=pBypass->load()>.5f?1.:std::pow(2.,juce::jlimit(-12.f,12.f,isDawMode()?pendingDawPitch():pSemitones->load())/12.);return (source.playing.load()?std::max(0.,source.durationSeconds.load()-source.position.load())/speed:0.)+effects.tailSeconds()+(pRevOn->load()>.5f?4.2:0.);}
+    }
+    return (isDawMode()?groupBypassed():pBypass->load()>.5f)?0:getBufferedTailSeconds()+effects.tailSeconds()+(pRevOn->load()>.5f && pEffectsBypass->load()<.5f && !legacyFault.load()?juce::jlimit(.1f,4.0f,std::isfinite(pRevTime->load())?pRevTime->load():1.5f)+.2:0);}
+bool TDSpeedVSTAudioProcessor::processSongAudition(juce::AudioBuffer<float>& buffer,bool hostBypassed) {
+    // Offline host exports continue to process DAW input. File rendering has its
+    // own worker, and in-plugin audition must never contaminate a DAW bounce.
+    if(isNonRealtime())return false;
+    const int mode=auditionMode.load();
+    if(mode==0){if(wasFileAudition){springVerb.reset();effects.reset();wasFileAudition=false;}return false;}
+    if(restartSong.exchange(false) || !wasFileAudition){springVerb.reset();effects.reset();reverbWasOn=false;}
+    if(legacyResetRequested.exchange(false)){springVerb.reset();legacyFault=false;}
+    wasFileAudition=true;buffer.clear();
+    if(mode==2) {
+        preview.render(buffer,fs);outputPeak.store(juce::jmin(32.f,buffer.getMagnitude(0,buffer.getNumSamples())));return true;
+    }
+    const bool bypass=hostBypassed || pBypass->load()>.5f;
+    const float pitch=juce::jlimit(-12.f,12.f,isDawMode()?pendingDawPitch():pSemitones->load());
+    source.render(buffer,fs,bypass?1.:std::pow(2.,pitch/12.));
+    if(bypass)finishOutput(buffer);else processFileEffects(buffer);
+    return true;
+}
+
 void TDSpeedVSTAudioProcessor::finishOutput(juce::AudioBuffer<float>& buffer)
 {
-    // A rendered preview already contains pitch, effects and output gain.
-    // Audition through the host without applying those controls a second time.
-    if (!isNonRealtime() && preview.render(buffer,fs)) {
-        outputPeak.store(juce::jmin(32.0f,buffer.getMagnitude(0,buffer.getNumSamples())));
-        return;
-    }
     float db=pMasterOutput->load();if(!std::isfinite(db))db=0;masterGain.setTargetValue(juce::Decibels::decibelsToGain(juce::jlimit(-24.0f,12.0f,db)));
     float peak=0;const bool protect=pProtect->load()>.5f;
     for(int i=0;i<buffer.getNumSamples();++i){const float gain=masterGain.getNextValue();for(int c=0;c<buffer.getNumChannels();++c){float v=buffer.getSample(c,i)*gain;peak=juce::jmax(peak,std::isfinite(v)?std::abs(v):32.0f);if(protect)v=juce::jlimit(-.98f,.98f,v);buffer.setSample(c,i,v);}}
@@ -544,14 +565,15 @@ void TDSpeedVSTAudioProcessor::prepareFileEffects(double rate) {
 }
 void TDSpeedVSTAudioProcessor::processFileEffects(juce::AudioBuffer<float>& buffer) {
     juce::ScopedNoDenormals noDenormals;prepareEffectControls();effects.beginBlock();
-    if(reverbWasOn && pEffectsBypass->load()<.5f) {
+    if(reverbWasOn && pEffectsBypass->load()<.5f && !legacyFault.load()) {
         for(int n=0;n<buffer.getNumSamples();++n) {
-            float* ch[]{buffer.getWritePointer(0)+n,buffer.getWritePointer(1)+n};
-            const float l=*ch[0],r=*ch[1];springVerb.process(ch,2,1,1);
-            if(!std::isfinite(*ch[0]) || !std::isfinite(*ch[1]) || std::abs(*ch[0])>32 || std::abs(*ch[1])>32){legacyFault=true;*ch[0]=l;*ch[1]=r;continue;}
+            const float l=buffer.getSample(0,n),r=buffer.getSample(juce::jmin(1,buffer.getNumChannels()-1),n);
+            float left=l,right=r;float* ch[]{&left,&right};springVerb.process(ch,2,1,1);
+            if(!std::isfinite(*ch[0]) || !std::isfinite(*ch[1]) || std::abs(*ch[0])>32 || std::abs(*ch[1])>32){legacyFault=true;continue;}
             const float mix=legacyMix.getNextValue(),gain=legacyGain.getNextValue(),wet=legacyWetGain.getNextValue()*blockLegacyCalibration;
             const float d=mix==1?0:std::cos(mix*juce::MathConstants<float>::halfPi),w=mix==0?0:wet*std::sin(mix*juce::MathConstants<float>::halfPi);
-            *ch[0]=mix==0 && gain==1?l:(l*d+*ch[0]*w)*gain;*ch[1]=mix==0 && gain==1?r:(r*d+*ch[1]*w)*gain;
+            left=mix==0 && gain==1?l:(l*d+left*w)*gain;right=mix==0 && gain==1?r:(r*d+right*w)*gain;
+            buffer.setSample(0,n,buffer.getNumChannels()==1?.5f*(left+right):left);if(buffer.getNumChannels()>1)buffer.setSample(1,n,right);
         }
     }
     effects.process(buffer,0,buffer.getNumSamples());finishOutput(buffer);

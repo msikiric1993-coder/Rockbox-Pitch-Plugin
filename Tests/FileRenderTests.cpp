@@ -56,11 +56,39 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         for(int c=0;c<2;++c)for(int i=0;i<music.getNumSamples();++i){const double t=i/48000.;const double envelope=(.4+.6*std::pow(std::sin(t*3.5),2))*std::sin(juce::MathConstants<double>::pi*t/12);music.setSample(c,i,(float)(envelope*(.18*std::sin(t*(1382.3+c*2))+.07*std::sin(t*2073.45)+.04*std::sin(t*3455.75))));}
         require(writer && writer->writeFromAudioSampleBuffer(music,0,music.getNumSamples()),"Preview fixture write");
     }
+    // Loading only decodes the original. Pitch/effects are auditioned live, and
+    // the complete render is an independent later command from frame zero.
+    const int filesBefore=root.getNumberOfChildFiles(juce::File::findFiles);
+    tdFile::LoadJob loaded(request.source);require(loaded.startThread() && loaded.waitForThreadToExit(15000),"Source loading timed out");
+    require(loaded.error.isEmpty() && loaded.audio && loaded.audio->samples.getNumSamples()==48000*12,"Loading changed source duration");
+    require(root.getNumberOfChildFiles(juce::File::findFiles)==filesBefore,"Loading unexpectedly rendered a file");
+    TDSpeedVSTAudioProcessor player(2);player.prepareToPlay(48000,257);player.source.install(std::move(loaded.audio));player.setAuditionMode(1);
+    tdEffects::setParameter(player.apvts,"bypass",0);tdEffects::setParameter(player.apvts,"semitones",-12);
+    juce::AudioBuffer<float> songBlock(2,257);juce::MidiBuffer songEvents;const float liveHistory=player.getBacklogSeconds();player.source.play();
+    songBlock.clear();player.processBlock(songBlock,songEvents);require(std::abs(player.source.position.load()-257./96000)<1e-9,"Slower source audition has wrong speed");
+    const auto sourcePos=player.source.position.load();tdEffects::setParameter(player.apvts,"semitones",12);player.processBlock(songBlock,songEvents);
+    require(std::abs(player.source.position.load()-sourcePos-514./48000)<1e-9,"Pitch tweak does not update source playback continuously");
+    require(player.getBacklogSeconds()==liveHistory,"File audition grows the live pitch backlog");
+    player.source.playing=false;const double paused=player.source.position.load();player.processBlock(songBlock,songEvents);require(player.source.position.load()==paused,"Paused source advances");
+    player.restartAudition();require(player.source.position.load()==0,"Restart does not reset source cursor");
+    tdEffects::applySpaceVariant(player.apvts,0,0);tdEffects::setParameter(player.apvts,"rack1_mix",100);tdEffects::setParameter(player.apvts,"semitones",-5);
+    player.source.play();double wetEnergy=0;for(int block=0;block<300;++block){player.processBlock(songBlock,songEvents);for(int i=0;i<257;++i)wetEnergy+=std::pow(songBlock.getSample(0,i),2);}
+    require(wetEnergy>1e-6 && !player.effects.faulted(0),"Live effects audition is silent or faulted");
+    tdEffects::setParameter(player.apvts,"rack1_on",0);tdEffects::setParameter(player.apvts,"revOn",1);player.restartAudition();
+    juce::AudioBuffer<float> mono(1,257);player.processBlock(mono,songEvents);require(std::isfinite(mono.getMagnitude(0,257)),"Mono source/legacy audition is invalid");
+    player.source.stop();request.input=player.source.snapshot();
+    const auto diskRender=root.getChildFile("disk-reference.wav");request.destination=diskRender;request.input.reset();
+    auto diskResult=tdFile::render(request,progress,[]{return false;});require(diskResult.error.isEmpty(),"Disk reference failed");
+    request.input=player.source.snapshot();request.destination=root.getChildFile("memory-render.wav");
+    auto memoryResult=tdFile::render(request,progress,[]{return false;});require(memoryResult.error.isEmpty() && request.destination.hasIdenticalContentTo(diskRender),"Loaded-memory render differs from disk source");
+    const auto sourceLocation=request.source;request.source=root.getChildFile("DAW temporary source no longer exists.wav");request.destination=root.getChildFile("retained-source.wav");
+    auto retained=tdFile::render(request,progress,[]{return false;});require(retained.error.isEmpty() && request.destination.hasIdenticalContentTo(diskRender),"Render depends on a DAW temporary input remaining on disk");request.source=sourceLocation;
+    request.destination=root.getChildFile("Preview slowed.wav");
     tdFile::Job audition(request,true);require(audition.startThread() && audition.waitForThreadToExit(15000),"Preview worker failed");
     require(audition.result.error.isEmpty() && audition.audio && audition.audio->samples.getNumSamples()>48000*12,"Preview did not load the extended result");
     require(audition.audio->file==request.destination && audition.audio->sampleRate==48000,"Preview uses wrong file or rate");
     const float expected=audition.audio->samples.getSample(0,12345);
-    state.prepareToPlay(48000,257);state.preview.install(std::move(audition.audio));
+    state.prepareToPlay(48000,257);state.preview.install(std::move(audition.audio));state.setAuditionMode(2);
     juce::AudioBuffer<float> previewBlock(2,257);previewBlock.clear();juce::MidiBuffer midi;
     state.preview.seek(12345/48000.);state.preview.play();
     tdEffects::setParameter(state.apvts,"masterOutput",-24);tdEffects::setParameter(state.apvts,"bypass",1);state.processBlock(previewBlock,midi);
@@ -89,7 +117,28 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         require(compressed.startThread() && compressed.waitForThreadToExit(15000) && compressed.error.isEmpty(),"Save As compressed failed");
         require(compressed.destination.getSize()<request.destination.getSize()/3,"Compressed Save As unexpectedly large");
     }
+    {
+        TDSpeedVSTAudioProcessor dropTarget(2);auto droppedEditor=std::unique_ptr<juce::AudioProcessorEditor>(dropTarget.createEditor());
+        auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(droppedEditor.get());
+        require(ui->isInterestedInFileDrag({request.source.getFullPathName()}) && !ui->isInterestedInFileDrag({root.getChildFile("not-audio.txt").getFullPathName()}),"Drop target accepts invalid audio or rejects a valid file");
+        ui->filesDropped({request.source.getFullPathName()},200,200);
+        bool loadedOnly=false;
+        juce::Timer::callAfterDelay(400,[&]{
+            loadedOnly=ui->hasSource() && !ui->hasPreview() && !dropTarget.source.playing;
+            auto result=std::make_unique<tdPreview::Audio>();result->samples.setSize(2,100);result->samples.clear();result->original=request.source;result->file=request.destination;result->rack=tdEffects::captureState(dropTarget.apvts);result->buildPeaks();
+            dropTarget.preview.install(std::move(result));dropTarget.setAuditionMode(2);ui->refreshAuditionView();tdEffects::setParameter(dropTarget.apvts,"semitones",-5);
+        });
+        juce::Timer::callAfterDelay(800,[]{juce::MessageManager::getInstance()->stopDispatchLoop();});juce::MessageManager::getInstance()->runDispatchLoop();
+        require(loadedOnly && ui->hasSource() && !dropTarget.source.playing,"Dropping a song does not load separately from rendering");
+        require(dropTarget.auditionMode.load()==1 && ui->hasPreview(),"Editing rendered controls does not return to source audition while retaining the result");
+        if(argc>2) {
+            tdEffects::setParameter(dropTarget.apvts,"semitones",-5);tdEffects::setParameter(dropTarget.apvts,"bypass",0);ui->setUiScale(1);
+            const auto path=juce::File(argv[2]).getSiblingFile("player-ui-source.png");juce::FileOutputStream image(path);image.setPosition(0);image.truncate();juce::PNGImageFormat png;png.writeImageToStream(ui->createComponentSnapshot(ui->getLocalBounds()),image);
+        }
+
+    }
     if(argc>2) {
+        tdFile::LoadJob forEditor(request.source);require(forEditor.startThread() && forEditor.waitForThreadToExit(15000) && forEditor.audio,"UI source load failed");state.source.install(std::move(forEditor.audio));tdEffects::restoreState(state.apvts,request.rack);tdEffects::setParameter(state.apvts,"semitones",-5);tdEffects::setParameter(state.apvts,"bypass",0);state.setAuditionMode(2);
         auto editor=std::unique_ptr<juce::AudioProcessorEditor>(state.createEditor());
         auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(false);ui->setUiScale(1);
         require(ui->hasPreview(),"Reopened editor lost rendered waveform");
@@ -97,5 +146,5 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         for(float scale:{.5f,1.f,1.5f,2.f}){ui->setUiScale(scale);require(ui->effectsFit(),"Scaled preview clips effect controls");}ui->setUiScale(1);
         juce::FileOutputStream image{juce::File(argv[2])};image.setPosition(0);image.truncate();juce::PNGImageFormat png;png.writeImageToStream(editor->createComponentSnapshot(editor->getLocalBounds()),image);
     }
-    std::cout<<"PASS file render lengths/final sample, 44.1/48/96 and 16/24/32-bit PCM, wet decay, cancellation, preview playback/seek/rate/end, offline isolation, waveform zoom/scaling/reopening and Save As WAV/FLAC/overwrite/failure/source protection; fixtures "<<root.getFullPathName()<<"\n";return 0;
+    std::cout<<"PASS file render lengths/final sample, 44.1/48/96 and 16/24/32-bit PCM, wet decay, cancellation, load without render, source pitch/effects/mono/pause/restart, in-memory rendering, audio file drop, preview playback/seek/rate/end, offline isolation, waveform zoom/scaling/reopening and Save As WAV/FLAC/overwrite/failure/source protection; fixtures "<<root.getFullPathName()<<"\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL "<<e.what()<<"\n";return 1;}}

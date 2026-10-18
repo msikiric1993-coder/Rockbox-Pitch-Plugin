@@ -100,8 +100,11 @@ int main(){juce::ScopedJuceInitialiser_GUI gui;try{
     });
     for(int i=0;i<100;++i){preview.install(makeAudio(i%2?.1f:-.1f));preview.play();preview.collect();}
     done=true;callback.join();preview.collect();require(!invalid && previewAllocations==0,"Audition replacement races, allocates or corrupts output");
-    a.preview.install(makeAudio(.1f));a.preview.play();juce::AudioBuffer<float> auditionBlock(2,257);auditionBlock.clear();
+    a.preview.install(makeAudio(.1f));a.setAuditionMode(2);a.preview.play();juce::AudioBuffer<float> auditionBlock(2,257);auditionBlock.clear();
     watch=true;a.processBlock(auditionBlock,midi);watch=false;require(auditionBlock.getMagnitude(0,257)>.09f,"DAW callback does not audition preview");a.preview.stop();
+    a.source.install(makeAudio(.1f));a.setAuditionMode(1);set(a,"bypass",0);set(a,"semitones",-5);set(a,"rack1_effect",50);set(a,"rack1_on",1);set(a,"rack1_mix",100);
+    for(int block=0;block<100;++block){if(block%10==0){a.restartAudition();a.source.play();}watch=true;a.processBlock(auditionBlock,midi);watch=false;}
+    a.source.stop();
     require(allocations==0,"DAW audio callback allocates");
     auto editor=std::unique_ptr<juce::AudioProcessorEditor>(a.createEditor());auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(true);ui->setAdvanced(true);for(float scale:{.5f,1.0f,1.25f,1.5f,2.0f}){ui->setUiScale(scale);require(!ui->isResizable() && ui->effectsFit(),"Scaled editor layout invalid");}editor->setSize(400,300);require(ui->effectsFit(),"Host-imposed viewport clips effects");
     std::cout<<"PASS DAW null across callback sizes/order, offline, stops/seeks/loops, latched pitch, linked bypass, recovery, late/skipped history, migration, no allocations, scaling\n";return 0;

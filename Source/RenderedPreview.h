@@ -9,11 +9,13 @@ namespace tdPreview {
 struct Audio {
     juce::File file, original;
     float semitones=0;
+    juce::ValueTree rack;
     uint64_t generation=0;
     bool temporary=false;
     mutable std::atomic<bool> dragged{false};
     ~Audio(){if(temporary && !dragged.load())file.deleteFile();}
     double sampleRate=48000;
+    int bitsPerSample=32;bool floatingPoint=true;
     juce::AudioBuffer<float> samples;
     struct Peak {float low=0,high=0;};
     std::vector<std::vector<std::vector<Peak>>> peaks;
@@ -44,33 +46,37 @@ struct Audio {
 class Session {
 public:
     std::atomic<bool> playing{false};
-    std::atomic<double> position{0};
+    std::atomic<double> position{0},durationSeconds{0};
     // Message-thread ownership. Retired buffers are reclaimed on that thread,
     // only after every callback that could have acquired them has finished.
     void install(std::unique_ptr<Audio> data) {
-        playing=false;data->generation=++nextGeneration;if(current)retired.push_back(std::move(current));current=std::move(data);
+        playing=false;if(data)data->generation=++nextGeneration;if(current)retired.push_back(std::move(current));current=std::move(data);
+        durationSeconds.store(current?current->duration():0.);
         active.store(current.get());seek(0);collect();
     }
+    void clear(){install(nullptr);}
     const Audio* audio() const {return current.get();} // message thread only
     std::shared_ptr<const Audio> snapshot() const {return current;} // message thread only
     void collect(){if(readers.load()==0)retired.clear();}
     void seek(double seconds){seekRequest.store(juce::jlimit(0.,current?current->duration():0.,seconds));position.store(seekRequest.load());}
     void play(){if(current){if(position.load()>=current->duration())seek(0);playing=true;}}
     void stop(){playing=false;seek(0);}
-    bool render(juce::AudioBuffer<float>& output,double hostRate) noexcept {
-        if(!playing.load() || !std::isfinite(hostRate) || hostRate<=0)return false;
+    bool render(juce::AudioBuffer<float>& output,double hostRate,double speed=1.) noexcept {
+        if(!playing.load() || !std::isfinite(hostRate) || hostRate<=0 || !std::isfinite(speed) || speed<=0)return false;
         readers.fetch_add(1);
         const auto* data=active.load();
         if(!data){readers.fetch_sub(1);return false;}
         const double requested=seekRequest.exchange(-1.);
         if(lastGeneration!=data->generation){lastGeneration=data->generation;cursorSeconds=0;}
         double frame=(requested>=0?requested:cursorSeconds)*data->sampleRate;
-        const double step=data->sampleRate/hostRate;const int count=data->samples.getNumSamples();
+        const double step=speed*data->sampleRate/hostRate;const int count=data->samples.getNumSamples();
         for(int i=0;i<output.getNumSamples();++i,frame+=step) {
             const auto base=(int64_t)std::floor(frame);const float t=(float)(frame-base);
             for(int c=0;c<output.getNumChannels();++c) {
                 const int source=juce::jmin(c,data->samples.getNumChannels()-1);
-                auto sample=[&](int64_t index){return index>=0 && index<count?data->samples.getSample(source,(int)index):0.f;};
+                auto sample=[&](int64_t index){if(index<0 || index>=count)return 0.f;
+                    if(output.getNumChannels()==1 && data->samples.getNumChannels()==2)return .5f*(data->samples.getSample(0,(int)index)+data->samples.getSample(1,(int)index));
+                    return data->samples.getSample(source,(int)index);};
                 const float a=sample(base-1),b=sample(base),d=sample(base+1),e=sample(base+2);
                 output.setSample(c,i,((.5f*(e-a)+1.5f*(b-d))*t+(a-2.5f*b+2*d-.5f*e))*t*t+.5f*(d-a)*t+b);
             }

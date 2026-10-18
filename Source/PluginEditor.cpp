@@ -55,22 +55,34 @@ void TDSpeedLookAndFeel::drawRotarySlider(juce::Graphics& g, int x, int y, int w
 TDSpeedVSTAudioProcessorEditor::TDSpeedVSTAudioProcessorEditor(TDSpeedVSTAudioProcessor& p):AudioProcessorEditor(&p),waveform(p.preview),processor(p),rackPanel(p)
 {
     setLookAndFeel(&theme);setResizable(false,false);addAndMakeVisible(content);
-    for(auto* c:std::initializer_list<juce::Component*>{&renderButton,&cancelRender,&renderStatus,&previewPlay,&previewStop,&previewFit,&previewSave,&previewInfo,&waveform,&sizeLabel})content.addAndMakeVisible(c);
+    for(auto* c:std::initializer_list<juce::Component*>{&loadButton,&renderButton,&cancelRender,&renderStatus,&previewPlay,&previewStop,&auditionSelector,&previewSave,&previewInfo,&waveform,&sizeLabel})content.addAndMakeVisible(c);
     renderButton.setColour(juce::TextButton::buttonColourId,juce::Colour(0xffe9b66a));
     renderButton.setColour(juce::TextButton::textColourOffId,background);
-    renderButton.setTooltip("Choose a source song and render its full slowed length with the current effects. The result appears below for playback, dragging or saving.");
-    renderButton.onClick=[this]{chooseRenderSource();};
+    loadButton.onClick=[this]{chooseRenderSource();};
+    renderButton.setTooltip("Render the entire loaded song from its beginning with the current pitch, effects and output level. Playback position and live buffer are ignored; no buffer reset is needed.");
+    renderButton.onClick=[this]{saveAfterRender=false;renderLoadedSong();};
     cancelRender.onClick=[this]{if(fileJob)fileJob->signalThreadShouldExit();};
     cancelRender.setVisible(false);
-    renderStatus.setText(hasPreview()?"Ready / drag the waveform into your DAW, or Save As":"Choose a song. Preview, drag into your DAW, or save.",juce::dontSendNotification);
-    renderStatus.setFont(juce::Font(11));
-    previewInfo.setFont(juce::Font(11));
+    renderStatus.setText("Load or drop a song, play and tweak, then render.",juce::dontSendNotification);
+    renderStatus.setFont(juce::Font(11));previewInfo.setFont(juce::Font(11));
     sizeLabel.setText("UI SIZE",juce::dontSendNotification);sizeLabel.setFont(juce::Font(11));
-    previewPlay.onClick=[this]{if(processor.preview.playing.load())processor.preview.playing=false;else processor.preview.play();};
-    previewStop.onClick=[this]{processor.preview.stop();};
-    previewFit.onClick=[this]{waveform.resetView();};previewSave.onClick=[this]{saveRenderedFile();};
-    previewPlay.setTooltip("Audition the rendered file through this track's host output. The DAW audio engine must be active.");
-    waveform.resetView();
+    auditionSelector.addItem("Live input",1);auditionSelector.addItem("Song + effects",2);auditionSelector.addItem("Rendered file",3);
+    auditionSelector.onChange=[this]{processor.setAuditionMode(auditionSelector.getSelectedId()-1);refreshAuditionView();};
+    previewPlay.onClick=[this]{
+        if(processor.auditionMode.load()==0){processor.setAuditionMode(hasSource()?1:2);refreshAuditionView();}
+        auto& song=processor.auditionMode.load()==2?processor.preview:processor.source;
+        if(song.playing.load())song.playing=false;else song.play();
+    };
+    previewStop.onClick=[this]{auto& song=processor.auditionMode.load()==2?processor.preview:processor.source;song.stop();processor.restartSong=true;};
+    previewSave.onClick=[this]{
+        if(hasSource() && processor.auditionMode.load()!=2 && (!hasPreview() || renderStale)){saveAfterRender=true;renderLoadedSong();}
+        else saveRenderedFile();
+    };
+    previewSave.setTooltip("Save the processed song. In Song + effects mode, changed settings are rendered from the beginning before saving.");
+    previewPlay.setTooltip("Play through the host audio output. Song + effects follows your current pitch and effects; Rendered file auditions the finished result.");
+    waveform.fileDropped=[this](const juce::File& file){if(!fileJob && !loadJob)loadSource(file);};
+    waveform.canDrop=[this]{return !fileJob && !loadJob;};
+    waveform.seeked=[this]{processor.restartSong=true;};refreshAuditionView();
     for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus})content.addAndMakeVisible(c);
     timingMode.addItem("Listening",1);timingMode.addItem("Follow DAW",2);timingAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(p.apvts,"timingMode",timingMode);
     timingMode.onChange=[this]{if(!processor.isDawMode())processor.leaveSyncGroup();timerCallback();};
@@ -88,7 +100,7 @@ TDSpeedVSTAudioProcessorEditor::TDSpeedVSTAudioProcessorEditor(TDSpeedVSTAudioPr
     output.setSliderStyle(juce::Slider::LinearHorizontal);output.setTextBoxStyle(juce::Slider::TextBoxRight,false,78,24);output.setTextValueSuffix(" dB");output.setDoubleClickReturnValue(true,0);
     outputAtt=std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(p.apvts,"masterOutput",output);
     outputLabel.setText("FINAL OUTPUT",juce::dontSendNotification);meter.setJustificationType(juce::Justification::centredRight);
-    zeroButton.onClick=[this]{semitoneSlider.setValue(0,juce::sendNotificationSync);};resetButton.onClick=[this]{processor.requestBacklogReset();};resetButton.setTooltip("Jump to current music, discarding the accumulated delay.");
+    zeroButton.onClick=[this]{semitoneSlider.setValue(0,juce::sendNotificationSync);};resetButton.onClick=[this]{if(processor.auditionMode.load()!=0)processor.restartAudition();else processor.requestBacklogReset();};resetButton.setTooltip("Jump to current music, discarding the accumulated delay.");
     rackTab.onClick=[this]{setEffectsExpanded(!showRack);};rackPanel.sizeChanged=[this]{updateSize();};
     tdUi::populate(uiSize);uiSize.setSelectedId(tdUi::valid((int)p.apvts.state.getProperty("uiScaleChoice",1)),juce::dontSendNotification);
     uiSize.onChange=[this]{processor.apvts.state.setProperty("uiScaleChoice",uiSize.getSelectedId(),nullptr);requestedScale=tdUi::requested(uiSize.getSelectedId());timerCallback();updateSize();};
@@ -96,7 +108,7 @@ TDSpeedVSTAudioProcessorEditor::TDSpeedVSTAudioProcessorEditor(TDSpeedVSTAudioPr
     importNotice.setText("Imported Mix keeps its percentage; 100% is now fully wet.",juce::dontSendNotification);importNotice.setFont(juce::Font(12));importOK.onClick=[this]{tdEffects::acknowledgeMixImport();mixExplained=true;processor.apvts.state.setProperty("rcMixNotice",false,nullptr);updateSize();};
     updateSize();timerCallback();startTimerHz(10);
 }
-TDSpeedVSTAudioProcessorEditor::~TDSpeedVSTAudioProcessorEditor(){processor.preview.playing=false;stopTimer();rackPanel.sizeChanged=nullptr;setLookAndFeel(nullptr);}
+TDSpeedVSTAudioProcessorEditor::~TDSpeedVSTAudioProcessorEditor(){processor.preview.playing=false;processor.source.playing=false;stopTimer();rackPanel.sizeChanged=nullptr;setLookAndFeel(nullptr);}
 void TDSpeedVSTAudioProcessorEditor::updateSize()
 {
     rackTab.setButtonText(showRack?"Effects v":"Effects >");rackPanel.setVisible(showRack);const int w=juce::roundToInt(820*uiScale),h=juce::roundToInt(preferredHeight()*uiScale);
@@ -111,40 +123,66 @@ void TDSpeedVSTAudioProcessorEditor::updateSize()
 }
 void TDSpeedVSTAudioProcessorEditor::timerCallback()
 {
-    processor.preview.collect();
+    processor.preview.collect();processor.source.collect();
+    if(loadJob && loadJob->done.load(std::memory_order_acquire)) {
+        fileError=loadJob->error.isNotEmpty();
+        if(fileError)renderStatus.setText(loadJob->error,juce::dontSendNotification);
+        else {processor.source.install(std::move(loadJob->audio));processor.preview.clear();processor.setAuditionMode(1);refreshAuditionView();renderStatus.setText("Loaded / press Play and adjust pitch and effects",juce::dontSendNotification);}
+        loadJob.reset();updateSize();
+    }
     if(fileJob) {
         if(fileJob->done.load(std::memory_order_acquire)) {
-            const auto result=fileJob->result;
+            const auto result=fileJob->result;fileError=result.error.isNotEmpty();
             if(result.error.isNotEmpty())renderStatus.setText(result.error,juce::dontSendNotification);
             else {
-                processor.preview.install(std::move(fileJob->audio));waveform.resetView();
+                processor.preview.install(std::move(fileJob->audio));processor.setAuditionMode(2);refreshAuditionView();waveform.resetView();
                 renderStatus.setText("Ready / full length rendered / drag the waveform into your DAW",juce::dontSendNotification);
             }
-            fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);updateSize();
+            fileJob.reset();cancelRender.setVisible(false);updateSize();
+            if(saveAfterRender){saveAfterRender=false;if(result.error.isEmpty())saveRenderedFile();}
         } else renderStatus.setText("Rendering "+juce::String(100*fileJob->progress.load(),0)+"% / preparing waveform",juce::dontSendNotification);
     }
     if(saveJob && saveJob->done.load(std::memory_order_acquire)) {
+        fileError=saveJob->error.isNotEmpty();saveNoticeUntil=juce::Time::getMillisecondCounterHiRes()+3000;
         renderStatus.setText(saveJob->error.isEmpty()?"Saved: "+saveJob->destination.getFileName():saveJob->error,juce::dontSendNotification);saveJob.reset();
     }
-    previewSave.setEnabled(!saveJob);
-    if(const auto* data=processor.preview.audio()) {
-        const auto pos=processor.preview.position.load();const bool playing=processor.preview.playing.load();
-        previewPlay.setButtonText(playing?"Pause":"Play");
-        if(playing && pos==lastPreviewPosition)++stalledPreviewTicks;else stalledPreviewTicks=0;
-        lastPreviewPosition=pos;
-        previewInfo.setText(stalledPreviewTicks>15?"Activate the DAW audio engine to hear preview":data->original.getFileNameWithoutExtension().substring(0,25)+" / "+juce::String(data->semitones,1)+" st / "+RenderedWaveform::time(pos,true)+" / "+RenderedWaveform::time(data->duration(),true),juce::dontSendNotification);
-        previewInfo.setTooltip(data->original.getFullPathName()+" / preview contains the settings used when rendered");
-        waveform.refresh();
+    const bool busy=fileJob!=nullptr || loadJob!=nullptr;
+    renderButton.setEnabled(hasSource() && !busy);loadButton.setEnabled(!busy);
+    previewSave.setEnabled(!busy && !saveJob && (hasSource() || hasPreview()));
+    previewPlay.setEnabled(hasSource() || hasPreview());previewStop.setEnabled(hasSource() || hasPreview());
+    auditionSelector.setItemEnabled(2,hasSource());auditionSelector.setItemEnabled(3,hasPreview());
+    int mode=processor.auditionMode.load();
+    renderStale=false;
+    const auto controls=tdEffects::captureState(processor.apvts);
+    const float pitch=processor.isDawMode()?processor.pendingDawPitch():processor.apvts.getRawParameterValue("semitones")->load();
+    const bool changed=lastAuditionRack.isValid() && (std::abs(pitch-lastAuditionPitch)>.001f || !controls.isEquivalentTo(lastAuditionRack));
+    if(const auto* rendered=processor.preview.audio();rendered && hasSource()) {
+        renderStale=std::abs(pitch-rendered->semitones)>.001f || !controls.isEquivalentTo(rendered->rack);
+        auditionSelector.changeItemText(3,renderStale?"Rendered (earlier)":"Rendered file");
+        // Editing a baked result returns to the live song at the matching source
+        // position. Choosing Rendered explicitly still allows comparison.
+        if(mode==2 && changed && !busy){const bool wasPlaying=processor.preview.playing.load();const double sourceTime=processor.preview.position.load()*std::pow(2.,rendered->semitones/12.);processor.setAuditionMode(1);processor.source.seek(sourceTime);processor.source.playing=wasPlaying;mode=1;refreshAuditionView();}
     }
+    lastAuditionRack=controls;lastAuditionPitch=pitch;
+    auto& song=mode==2?processor.preview:processor.source;
+    if(const auto* data=song.audio()) {
+        const auto pos=song.position.load();const bool playing=song.playing.load();previewPlay.setButtonText(playing?"Pause":"Play");
+        if(playing && pos==lastPreviewPosition)++stalledPreviewTicks;else stalledPreviewTicks=0;lastPreviewPosition=pos;
+        const auto label=data->original.getFileNameWithoutExtension().substring(0,16);
+        previewInfo.setText(stalledPreviewTicks>15?"Activate the DAW audio engine":label+" / "+RenderedWaveform::time(pos,true)+" / "+RenderedWaveform::time(data->duration(),true),juce::dontSendNotification);
+        previewInfo.setTooltip(data->original.getFullPathName()+(mode==2?" / contains settings used at render time":" / live pitch and effects controls"));
+    } else {previewPlay.setButtonText("Play");previewInfo.setText("Drop audio here or use Load song",juce::dontSendNotification);}
+    if(renderStale && !busy && !saveJob && !fileError && juce::Time::getMillisecondCounterHiRes()>saveNoticeUntil)renderStatus.setText("Settings changed / Render from start updates the file",juce::dontSendNotification);
+    waveform.refresh();
     if(!standalone){const auto* d=juce::Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds());if(d){const float fit=juce::jmin((d->userArea.getWidth()-32)/820.0f,(d->userArea.getHeight()-72)/(float)preferredHeight());const float scale=juce::jmin(uiSize.getSelectedId()==1?tdUi::automatic(d->userArea):requestedScale,fit);if(std::abs(scale-uiScale)>.001f){uiScale=scale;updateSize();}}}
     if(!standalone){
         auto groups=processor.availableSyncGroups();if(groups!=groupList){groupList=groups;joinGroup.clear(juce::dontSendNotification);joinGroup.addItem("Join group...",1);for(size_t i=0;i<groupList.size();++i)joinGroup.addItem(groupList[i].second,(int)i+2);}
         const auto id=processor.syncGroupId();int selected=1;for(size_t i=0;i<groupList.size();++i)if(groupList[i].first==id)selected=(int)i+2;joinGroup.setSelectedId(selected,juce::dontSendNotification);
-        const bool daw=processor.isDawMode(),leader=processor.syncLeader();semitoneSlider.setEnabled(!daw || leader);zeroButton.setEnabled(!daw || leader);resetButton.setEnabled(!daw);
+        const bool daw=processor.isDawMode(),leader=processor.syncLeader();semitoneSlider.setEnabled(!daw || leader);zeroButton.setEnabled(!daw || leader);resetButton.setEnabled(!daw || mode!=0);
         const bool editable=daw && !processor.dawRunning();createGroup.setEnabled(editable);joinGroup.setEnabled(editable);leaveGroup.setEnabled(editable && id.isNotEmpty());
         if(daw && !leader && std::abs(processor.apvts.getRawParameterValue("semitones")->load()-processor.pendingDawPitch())>.049f)tdEffects::setParameter(processor.apvts,"semitones",processor.pendingDawPitch());
         if(daw && id.isNotEmpty() && (processor.apvts.getRawParameterValue("bypass")->load()>.5f)!=processor.groupBypassed())tdEffects::setParameter(processor.apvts,"bypass",processor.groupBypassed()?1:0);
-        bypassButton.setButtonText(daw && id.isNotEmpty()?"Bypass group":"Bypass");resetButton.setButtonText(daw?"Stop/Play resets":"Re-centre buffer");
+        bypassButton.setButtonText(daw && id.isNotEmpty()?"Bypass group":"Bypass");resetButton.setButtonText(mode!=0?"Restart song":daw?"Stop/Play resets":"Re-centre buffer");
         syncStatus.setText(processor.dawStatusText()+(id.isNotEmpty()?(leader?" / leader":" / follower"):""),juce::dontSendNotification);
     }
     if(importNotice.isVisible()!=mixNotice())updateSize();
@@ -152,6 +190,7 @@ void TDSpeedVSTAudioProcessorEditor::timerCallback()
     const float semi=processor.apvts.getRawParameterValue("semitones")->load();speedLabel.setText(juce::String(std::pow(2.0f,semi/12)*100,1)+"% playback speed",juce::dontSendNotification);
     const bool bypass=processor.apvts.getRawParameterValue("bypass")->load()>.5f;
     delayLabel.setText(processor.isDawMode()?processor.dawStatusText():bypass?"Dry forwarding / buffered playback held":"Buffer delay / "+juce::String(backlog<60?backlog:backlog/60,2)+(backlog<60?" s":" min"),juce::dontSendNotification);
+    if(mode!=0){delayLabel.setText(mode==2?"Rendered file / ready to drag or save":bypass?(standalone?"Enable processing above to hear pitch and effects":"Song bypassed / turn off Bypass to hear pitch and effects"):"Loaded song / live pitch and effects",juce::dontSendNotification);resetButton.setButtonText("Restart song");resetButton.setTooltip("Restart the song and clear effect tails. Rendering always starts at the beginning.");}
     int active=processor.apvts.getRawParameterValue("revOn")->load()>.5f?1:0;for(int i=0;i<3;++i)if(processor.apvts.getRawParameterValue(tdEffects::slotId(i,"on"))->load()>.5f)++active;
     rackTab.setButtonText(juce::String(showRack?"Effects v":"Effects >")+" / "+juce::String(active)+" active");
     const float peak=processor.getOutputPeak();meter.setText(juce::String(juce::jlimit(-120.0f,30.1f,juce::Decibels::gainToDecibels(peak)),1)+" dBFS"+(peak>=1?" / CLIP":""),juce::dontSendNotification);meter.setColour(juce::Label::textColourId,peak>=1?juce::Colour(0xfff5aa70):accent);
@@ -161,12 +200,16 @@ void TDSpeedVSTAudioProcessorEditor::paint(juce::Graphics& g)
 {
     g.fillAll(background);g.addTransform(juce::AffineTransform::scale(paintScale));g.setColour(ink);g.setFont(28);g.drawText("TDSPEED PREVIEW",28,17,410,36,juce::Justification::centredLeft);
     g.setColour(muted);g.setFont(13);g.drawText("VARISPEED / PERSONAL LISTENING",29,53,400,20,juce::Justification::centredLeft);
-    if(hasPreview()){g.setColour(panel);g.fillRoundedRectangle(previewPanel.toFloat(),10);g.setColour(juce::Colour(0xffe9b66a).withAlpha(.35f));g.drawRoundedRectangle(previewPanel.toFloat().reduced(.5f),10,1);}
+    {g.setColour(panel);g.fillRoundedRectangle(previewPanel.toFloat(),10);g.setColour(juce::Colour(0xffe9b66a).withAlpha(.35f));g.drawRoundedRectangle(previewPanel.toFloat().reduced(.5f),10,1);}
     for(auto r:{pitchPanel,reverbPanel,statusPanel}){g.setColour(panel);g.fillRoundedRectangle(r.toFloat(),12);g.setColour(border);g.drawRoundedRectangle(r.toFloat().reduced(.5f),12,1);}
     g.setColour(ink);g.setFont(17);g.drawText("Pitch & speed",44,pitchPanel.getY()+12,200,26,juce::Justification::centredLeft);
     g.setColour(muted);g.setFont(12);g.drawText("-12 / HALF SPEED",44,pitchPanel.getBottom()-34,170,20,juce::Justification::centredLeft);g.drawText("+12 / DOUBLE SPEED",600,pitchPanel.getBottom()-34,175,20,juce::Justification::centredRight);
-    auto track=statusPanel.toFloat().reduced(20,0).withY((float)statusPanel.getY()+48).withHeight(5);g.setColour(border);g.fillRoundedRectangle(track,2);g.setColour(accent);g.fillRoundedRectangle(track.withWidth(track.getWidth()*juce::jlimit(0.0f,1.0f,backlog/juce::jmax(1.0f,capacity))),2);
-    g.setColour(muted);const auto msg=bufferState?"Buffer limit / 3-second recovery / "+juce::String(processor.getPauseSeconds(),1)+" s remaining":"Pitch down slows the song: delay grows naturally. History limit: 3-second pause, reset and resume.";
+    const int mode=processor.auditionMode.load();
+    auto track=statusPanel.toFloat().reduced(20,0).withY((float)statusPanel.getY()+48).withHeight(5);g.setColour(border);g.fillRoundedRectangle(track,2);g.setColour(accent);
+    const auto& song=mode==2?processor.preview:processor.source;
+    const double fraction=mode!=0?song.position.load()/juce::jmax(.001,song.durationSeconds.load()):backlog/juce::jmax(1.f,capacity);
+    g.fillRoundedRectangle(track.withWidth(track.getWidth()*(float)juce::jlimit(0.,1.,fraction)),2);
+    g.setColour(muted);const auto msg=mode!=0?juce::String("File playback / Render from start always includes the whole song, regardless of this cursor."):bufferState?"Buffer limit / 3-second recovery / "+juce::String(processor.getPauseSeconds(),1)+" s remaining":"Pitch down slows the song: delay grows naturally. History limit: 3-second pause, reset and resume.";
     g.drawText(msg,statusPanel.getX()+20,statusPanel.getY()+66,statusPanel.getWidth()-40,20,juce::Justification::centredLeft);
 }
 void TDSpeedVSTAudioProcessorEditor::resized()
@@ -174,13 +217,13 @@ void TDSpeedVSTAudioProcessorEditor::resized()
     paintScale=juce::jmin(uiScale,juce::jmin(getWidth()/820.0f,getHeight()/(float)preferredHeight()));
     content.setTransform(juce::AffineTransform());content.setBounds(0,0,820,preferredHeight());content.setTransform(juce::AffineTransform::scale(paintScale));
     bypassButton.setBounds(676,26,110,30);uiSize.setBounds(567,26,90,30);sizeLabel.setBounds(514,26,52,30);sizeLabel.setVisible(!standalone);
-    const int waveHeight=hasPreview()?218:0;
+    const int waveHeight=218;
     const int offset=(mixNotice()?28:0)+50+(standalone?0:76)+waveHeight;
     importNotice.setVisible(mixNotice());importOK.setVisible(mixNotice());importNotice.setBounds(28,73+50+(standalone?0:76)+waveHeight,690,28);importOK.setBounds(730,73+50+(standalone?0:76)+waveHeight,56,28);
-    renderButton.setBounds(28,82,236,34);cancelRender.setBounds(276,82,90,34);renderStatus.setBounds(fileJob?378:280,80,fileJob?408:506,38);
+    loadButton.setBounds(28,82,148,34);renderButton.setBounds(188,82,190,34);cancelRender.setBounds(390,82,74,34);renderStatus.setBounds(fileJob?476:390,80,fileJob?310:396,38);
     previewPanel={24,126,772,waveHeight};
-    for(auto* c:std::initializer_list<juce::Component*>{&waveform,&previewPlay,&previewStop,&previewFit,&previewSave,&previewInfo})c->setVisible(hasPreview());
-    previewPlay.setBounds(40,134,72,28);previewStop.setBounds(120,134,62,28);previewFit.setBounds(190,134,60,28);previewSave.setBounds(258,134,100,28);previewInfo.setBounds(370,131,406,34);waveform.setBounds(36,170,748,162);
+    for(auto* c:std::initializer_list<juce::Component*>{&waveform,&previewPlay,&previewStop,&auditionSelector,&previewSave,&previewInfo})c->setVisible(true);
+    previewPlay.setBounds(40,134,72,28);previewStop.setBounds(120,134,62,28);auditionSelector.setBounds(190,134,170,28);previewSave.setBounds(370,134,100,28);previewInfo.setBounds(480,131,296,34);waveform.setBounds(36,170,748,162);
     const int groupY=130+waveHeight;
     timingMode.setBounds(28,groupY,124,28);createGroup.setBounds(166,groupY,124,28);joinGroup.setBounds(304,groupY,284,28);leaveGroup.setBounds(602,groupY,184,28);syncStatus.setBounds(28,groupY+34,758,38);
     pitchPanel={24,86+offset,772,126};zeroButton.setBounds(636,101+offset,140,28);semitoneSlider.setBounds(40,135+offset,740,42);speedLabel.setBounds(285,178+offset,250,20);speedLabel.setJustificationType(juce::Justification::centred);
@@ -191,29 +234,39 @@ void TDSpeedVSTAudioProcessorEditor::resized()
 }
 
 void TDSpeedVSTAudioProcessorEditor::chooseRenderSource() {
-    if(fileJob)return;
-    renderChooser=std::make_unique<juce::FileChooser>("Choose the original audio file to render",juce::File(),"*.wav;*.flac;*.aif;*.aiff;*.mp3;*.m4a;*.aac;*.ogg;*.opus");
+    if(fileJob || loadJob)return;
+    renderChooser=std::make_unique<juce::FileChooser>("Load a song to audition and adjust",juce::File(),"*.wav;*.flac;*.aif;*.aiff;*.mp3;*.m4a;*.aac;*.ogg;*.opus");
     renderChooser->launchAsync(juce::FileBrowserComponent::openMode|juce::FileBrowserComponent::canSelectFiles,[safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this)](const juce::FileChooser& chooser){
-        if(safe && chooser.getResult().existsAsFile())safe->confirmFileRender(chooser.getResult());
+        if(safe && chooser.getResult().existsAsFile())safe->loadSource(chooser.getResult());
     });
 }
-void TDSpeedVSTAudioProcessorEditor::confirmFileRender(const juce::File& source) {
-    tdFile::Request request;request.source=source;request.rack=tdEffects::captureState(processor.apvts);
+void TDSpeedVSTAudioProcessorEditor::loadSource(const juce::File& file) {
+    if(fileJob || loadJob)return;
+    if(!file.existsAsFile()){fileError=true;renderStatus.setText("Dropped audio is not a readable file. Use Load song instead.",juce::dontSendNotification);return;}
+    fileError=false;saveNoticeUntil=0;loadJob=std::make_unique<tdFile::LoadJob>(file);renderStatus.setText("Loading song / no rendering yet",juce::dontSendNotification);
+    if(!loadJob->startThread()){fileError=true;loadJob.reset();renderStatus.setText("Could not start loading",juce::dontSendNotification);}
+}
+void TDSpeedVSTAudioProcessorEditor::refreshAuditionView() {
+    const int mode=processor.auditionMode.load();auditionSelector.setSelectedId(mode+1,juce::dontSendNotification);
+    waveform.bind(mode==2?processor.preview:processor.source,mode==2);
+    if(!hasSource() && !hasPreview())waveform.resetView();
+}
+void TDSpeedVSTAudioProcessorEditor::renderLoadedSong() {
+    const auto* data=processor.source.audio();if(!data || fileJob || loadJob)return;
+    tdFile::Request request;request.source=data->original;request.input=processor.source.snapshot();request.rack=tdEffects::captureState(processor.apvts);
     request.semitones=processor.isDawMode()?processor.pendingDawPitch():processor.apvts.getRawParameterValue("semitones")->load();
-    const auto speed=std::pow(2.,request.semitones/12.);
-    const auto message="Render this source at "+juce::String(request.semitones,1)+" semitones ("+juce::String(speed*100,1)+"% speed), with this instance's current effects and output levels?\n\nA temporary WAV will appear below for playback and dragging into the DAW. Nothing needs to be saved first. Save As is optional. The source sample rate and bit depth are preserved where supported.\n\nThis renders the selected source file, not DAW clip edits or other plugins. After importing the result, mute the original and avoid applying pitch/effects twice.";
-    juce::AlertWindow::showOkCancelBox(juce::AlertWindow::QuestionIcon,"Render source file",message,"Render","Cancel",this,juce::ModalCallbackFunction::create([safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this),request](int yes){if(safe && yes)safe->startFileRender(request);}));
+    startFileRender(request);
 }
 void TDSpeedVSTAudioProcessorEditor::startFileRender(tdFile::Request request) {
     if(fileJob)return;
     const auto cache=juce::File(juce::SystemStats::getEnvironmentVariable("LOCALAPPDATA",juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getFullPathName())).getChildFile("TDSpeed Preview/Rendered audio");
-    if(cache.createDirectory().failed()){renderStatus.setText("Could not create the temporary render folder",juce::dontSendNotification);return;}
+    if(cache.createDirectory().failed()){fileError=true;renderStatus.setText("Could not create the temporary render folder",juce::dontSendNotification);return;}
     // Keep dragged files available after the editor/plugin closes: some DAWs
     // reference dropped audio instead of copying it into the project.
     request.destination=cache.getChildFile(request.source.getFileNameWithoutExtension()+" - TDSpeed - "+juce::Uuid().toString()+".wav");
-    renderButton.setEnabled(false);cancelRender.setVisible(true);
+    fileError=false;saveNoticeUntil=0;renderButton.setEnabled(false);cancelRender.setVisible(true);
     fileJob=std::make_unique<tdFile::Job>(request,true);
-    if(!fileJob->startThread()){fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);renderStatus.setText("Could not start render worker",juce::dontSendNotification);}
+    if(!fileJob->startThread()){fileError=true;fileJob.reset();renderButton.setEnabled(true);cancelRender.setVisible(false);renderStatus.setText("Could not start render worker",juce::dontSendNotification);}
     resized();
 }
 void TDSpeedVSTAudioProcessorEditor::saveRenderedFile() {
@@ -225,7 +278,7 @@ void TDSpeedVSTAudioProcessorEditor::saveRenderedFile() {
     renderChooser->launchAsync(juce::FileBrowserComponent::saveMode|juce::FileBrowserComponent::canSelectFiles|juce::FileBrowserComponent::warnAboutOverwriting,[safe=juce::Component::SafePointer<TDSpeedVSTAudioProcessorEditor>(this),rendered,original,lease](const juce::FileChooser& chooser) {
         if(!safe || chooser.getResult()==juce::File())return;
         auto destination=chooser.getResult();if(destination.getFileExtension().isEmpty())destination=destination.withFileExtension(original.getFileExtension().isEmpty()?".wav":original.getFileExtension());
-        safe->saveJob=std::make_unique<tdFile::SaveJob>(rendered,original,destination,lease);
-        if(!safe->saveJob->startThread()){safe->saveJob.reset();safe->renderStatus.setText("Could not start save worker",juce::dontSendNotification);}else safe->renderStatus.setText("Saving rendered audio...",juce::dontSendNotification);
+        safe->fileError=false;safe->saveJob=std::make_unique<tdFile::SaveJob>(rendered,original,destination,lease);
+        if(!safe->saveJob->startThread()){safe->fileError=true;safe->saveJob.reset();safe->renderStatus.setText("Could not start save worker",juce::dontSendNotification);}else safe->renderStatus.setText("Saving rendered audio...",juce::dontSendNotification);
     });
 }

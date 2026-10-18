@@ -17,8 +17,12 @@ public:
 
     //==============================================================================
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
-    void releaseResources() override { preview.playing=false; }
-    tdPreview::Session preview;
+    void releaseResources() override { preview.playing=false;source.playing=false; }
+    tdPreview::Session preview,source;
+    std::atomic<int> auditionMode{0}; // 0 live input, 1 source + live controls, 2 rendered
+    std::atomic<bool> restartSong{false};
+    void setAuditionMode(int mode){source.playing=false;preview.playing=false;auditionMode.store(juce::jlimit(0,2,mode));restartSong=true;}
+    void restartAudition(){auto& song=auditionMode.load()==2?preview:source;song.seek(0);restartSong=true;}
     void reset() override;
 #ifndef JucePlugin_PreferredChannelConfigurations
     bool isBusesLayoutSupported(const BusesLayout& layouts) const override;
@@ -78,6 +82,8 @@ private:
     void handleAsyncUpdate() override;
     void processDaw(juce::AudioBuffer<float>&,bool hostBypass);
     void prepareEffectControls();
+    bool processSongAudition(juce::AudioBuffer<float>&,bool hostBypassed);
+    bool wasFileAudition=false;
     void freshDawHistory();
     tdDaw::Group solo;
     const uint64_t memberId=tdDaw::Registry::instance().nextMember.fetch_add(1);

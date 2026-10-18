@@ -2,7 +2,7 @@
 #include "PluginProcessor.h"
 #include <functional>
 namespace tdFile {
-struct Request { juce::File source, destination;juce::ValueTree rack;float semitones=0; };
+struct Request { juce::File source, destination;juce::ValueTree rack;float semitones=0;std::shared_ptr<const tdPreview::Audio> input; };
 struct Result { juce::String error;juce::File file;double duration=0;bool encoded=false; };
 Result render(const Request&,std::atomic<float>& progress,const std::function<bool()>& cancelled);
 class Job : public juce::Thread {
@@ -13,6 +13,15 @@ public:
     std::unique_ptr<tdPreview::Audio> audio;
     bool loadAudition=false;
     Request request;Result result;std::atomic<float> progress{0};std::atomic<bool> done{false};
+};
+// Loading decodes and draws a source; it never invokes pitch/effect rendering.
+class LoadJob : public juce::Thread {
+public:
+    explicit LoadJob(juce::File source):Thread("TDSpeed load source"),source(source){}
+    ~LoadJob() override {signalThreadShouldExit();stopThread(-1);}
+    void run() override;
+    juce::File source;std::unique_ptr<tdPreview::Audio> audio;juce::String error;
+    std::atomic<bool> done{false};
 };
 class SaveJob : public juce::Thread {
 public:
