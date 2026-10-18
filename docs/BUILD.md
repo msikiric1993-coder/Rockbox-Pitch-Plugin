@@ -34,3 +34,9 @@ Runtime: WASAPI shared-mode stereo float 48 kHz; Windows converts native formats
 GitHub Actions builds/tests Windows Release and ASan configurations. Hardware/subjective/fresh-machine checks remain manual gates. No signing certificate is supplied; release app/installer files are unsigned. Keep the root licence, vendor notices and corresponding source with redistributed packages.
 
 The VST3 reports zero fixed algorithmic latency for the effect engines; musical pre-delay/echo and the intentionally variable varispeed backlog are not a fixed compensation delay. Tail metadata sums enabled engine tails, uses exact IR duration/Signalsmith RT60 and feedback-based delay estimates; normalized legacy/vendor decay shapes use conservative estimates. Freeze can sustain indefinitely. Host compensation for variable varispeed timing and conservative vendor tails should be confirmed in the intended DAW before publication.
+
+## RC packaging and signing
+
+`Tools/Build-Standalone.ps1 -Version 0.4.2-rc.1` creates matching installer, portable, VST3 and source packages. Supply `-SigningThumbprint` and `-SignTool` to sign the app, plugin module and installer with an installed trusted publisher certificate and SHA-256 timestamp. Without those inputs packages are unsigned and must be labelled accordingly. Never put private keys or credentials in Git. Source/ZIP verification runs after signing.
+
+FFmpeg is optional and not redistributed. Native FLAC works without it; AAC uses the encoder found beside the executable or on PATH.

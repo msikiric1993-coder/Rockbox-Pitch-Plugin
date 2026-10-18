@@ -4,7 +4,7 @@ A Windows listening app and VST3 inspired by Rockbox's pitch control: lower pitc
 
 I loved listening to slowed-down songs on my Sansa Clip Zip running Rockbox when I was younger. I couldn't find the same experience as a live effect on PC, so I made this.
 
-**[Download the first release](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/releases/tag/v0.4.1)** | Windows 11 x64
+**[Download 0.4.2-rc.1 (release candidate)](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/releases/tag/v0.4.2-rc.1)** | Windows 11 x64
 
 ![Plugin interface](docs/images/interface.png)
 
@@ -30,7 +30,7 @@ Reverb can really enhance slowed-down music. Open **Effects** for **three indepe
 
 ## Install and listen
 
-1. Download and run **TDSpeed-Setup-0.4.1.exe**. It reuses a supported existing cable or installs the included standard VB-CABLE when needed. Restart Windows if requested.
+1. Download and run **TDSpeed-Setup-0.4.2-rc.1.exe**. It reuses a supported existing cable or installs the included standard VB-CABLE when needed. Restart Windows if requested.
 2. Open **TDSpeedPreview**. In **Audio settings**, select the cable and your physical listening output, such as your DAC, audio interface or headphones.
 3. Play some music, press **Enable processing** and move the pitch slider.
 
@@ -38,11 +38,11 @@ Already have a usable **Hi-Fi Cable or standard VB-CABLE**? Extract the **Portab
 
 You may initially hear silence. With the cable and listening output selected, press **Enable processing at the top of the window**; audio should then start.
 
-Closing hides the app to the tray; **Exit** restores normal Windows audio. The app and installer are unsigned.
+Closing hides the app to the tray; **Exit** restores normal Windows audio. The RC app and installer are currently unsigned; the bundled VB-CABLE driver is signed by its vendor. Do not confuse the driver signature with an application signature.
 
 ## VST3
 
-Extract the **VST3 ZIP**, copy the complete `TDSpeedPreview.vst3` bundle into your DAW's VST3 folder and rescan. The plugin does **not** need a virtual cable.
+Extract the **VST3 ZIP**, copy the complete `TDSpeedPreview.vst3` bundle into your DAW's VST3 folder and rescan. The plugin does **not** need a virtual cable. Keep the bundle intact, including its runtime DLLs. Its internal filename remains TDSpeedPreview for compatibility with existing projects.
 
 To keep multiple processed tracks synchronized:
 
@@ -52,9 +52,9 @@ To keep multiple processed tracks synchronized:
 
 Pitch changes during playback apply after **Stop/Play**. Grouped tracks share their buffered timing; they cannot stay aligned indefinitely with untreated tracks or different speeds.
 
-## Render complete songs (0.4.2 preview)
+## Render complete songs
 
-This workflow is available in the [0.4.2 preview source](https://github.com/msikiric1993-coder/Rockbox-Pitch-Plugin/tree/feature/file-render). The v0.4.1 download above is the earlier release.
+Available in both the RC VST3 and standalone app. Rendering produces a complete new file; it does not depend on extending the original DAW clip.
 
 **Drag in, tweak, render, drag out:**
 
@@ -63,17 +63,19 @@ This workflow is available in the [0.4.2 preview source](https://github.com/msik
 3. Click **Render from start**. The complete changed-length song appears as a yellow waveform, including effect decay.
 4. Drag that rendered waveform back into your DAW as a new clip. Mute the original and avoid applying the same processing twice.
 
+![Song renderer and extended waveform](docs/images/song-render.png)
+
 The drag-in/render/drag-out workflow has been tested successfully by the project owner. The plugin also has its own **Save As** for a separate audio file; the DAW's Save As remains a separate project/export operation. Live processing does not resize the original DAW clip.
 
 In the standalone app, open **Song render** for the same load, audition and render workflow. Its **Restart song** button rewinds the selected song and clears effect tails. Save as **AAC at a 320 kbps target (.m4a)** for compact listening files or **FLAC** for lossless PCM compression. Float/32-bit renders are converted to 24-bit PCM for FLAC, as shown in the panel. FLAC can still be substantially larger than an MP3.
 
 AAC saving needs FFmpeg installed and available on PATH. If needed, run `winget install --id Gyan.FFmpeg -e`, then restart the app. FLAC works without FFmpeg.
 
-## Known issue: shortened DAW exports
+## Exporting live VST processing
 
-In **0.4.1**, slowing audio does not extend the DAW clip or export range. Exporting only the original song length can cut off music still waiting in the plugin's buffer.
+Live VST processing does not extend the DAW clip or export range, including in this RC. Exporting only the original song length can cut off music still waiting in the plugin's buffer.
 
-**Workaround:** export a longer time selection from the song's beginning. Allow roughly **original duration / playback speed**, plus startup delay and reverb decay. For example, a four-minute song at 50% speed needs about eight minutes. Keep the plugin processing after the clip ends; add a silent extension if your DAW needs one. Automatic effect-tail handling alone may not include the backlog in this version.
+**Recommended:** use the song renderer above and drag the complete result into the DAW. Alternatively, export a longer time selection from the song's beginning. Allow roughly **original duration / playback speed**, plus startup delay and reverb decay. For example, a four-minute song at 50% speed needs about eight minutes. Keep the plugin processing after the clip ends; add a silent extension if your DAW needs one. Hosts differ in how they handle reported tails; choose the export range explicitly.
 
 ## Source and credits
 

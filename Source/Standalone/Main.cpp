@@ -338,7 +338,7 @@ class Application : public juce::JUCEApplication, private juce::Timer
 {
 public:
     const juce::String getApplicationName()override{return "TDSpeed Preview";}
-    const juce::String getApplicationVersion()override{return "0.4.2-preview";}
+    const juce::String getApplicationVersion()override{return "0.4.2-rc.1";}
     bool moreThanOneInstanceAllowed()override{return true;} // CLI diagnostics/watchdog are separate; GUI mutex below.
     void initialise(const juce::String& parameters)override
     {
@@ -442,6 +442,7 @@ public:
         if(args.size()>1 && args[0]=="--ui-check")
         {
             MainWindow testWindow(false,false);auto* report=new juce::DynamicObject();juce::var result(report);juce::Array<juce::var> layouts;const int initial=testWindow.getHeight();bool allFit=true;
+            testWindow.content().showSongTools(false); // Persisted panel state must not change the test baseline.
             const int songInitial=testWindow.content().getHeight();testWindow.content().showSongTools(true);const int songOpen=testWindow.content().getHeight();testWindow.content().showSongTools(false);const int songClosed=testWindow.content().getHeight();
             const bool songSizing=songOpen>songInitial && songClosed==songInitial;report->setProperty("songPanelSizing",songSizing);
             const auto hwnd=(HWND)testWindow.getPeer()->getNativeHandle();const auto style=GetWindowLongPtrW(hwnd,GWL_STYLE);

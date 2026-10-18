@@ -1,10 +1,19 @@
+# 0.4.2-rc.1
+
+- VST source player: load or drag in a song, audition pitch/effects, render from the beginning, then drag the extended waveform into the DAW or save it separately.
+- Expandable standalone Song render panel, Restart song, native FLAC and optional AAC at a 320 kbps target through FFmpeg.
+- Playback, seeking, waveform zoom/pan and source/rendered comparison. Rendering is independent of the live buffer and DAW export range.
+- Retains synchronized DAW groups, automatic whole-window sizing, scaling, racks and Rockbox-style coupled pitch/speed.
+- Existing TDSpeedPreview identity retained for session compatibility. Live VST processing still does not extend DAW clips.
+- Matching source, runtime libraries, licences and validation report. Trusted application signing requires a publisher certificate; original VB-CABLE fallback remains vendor signed.
+
 # Changelog
 
-## 0.4.1 — 18 October 2026
+## 0.4.1 â€” 18 October 2026
 
 - DAW transport timing, same-process linked track groups, shared bypass and pitch latched at Play.
 - Fresh history on Play/seek/loop, clear warnings for missing track history; Listening held playback preserved.
-- Whole-interface Auto/50–200% scaling, automatic expansion and fixed VST3 content sizing.
+- Whole-interface Auto/50â€“200% scaling, automatic expansion and fixed VST3 content sizing.
 - Release polish preserves the accepted pitch/effects sound and parameter/plugin identities.
 - Hoist invariant DAW recovery-period and rack smoothing calculations; avoid unused DAW ring-position calculation.
 - Release stale host-bypass votes on repeated prepare; guard empty bypass callbacks and suppress denormals.
