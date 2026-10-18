@@ -1,0 +1,243 @@
+{
+  "method": "Deterministic pink noise, 16 s, RMS measured over seconds 8-16 at 48 kHz. Fixed inverse RMS. User music/listening acceptance pending.",
+  "calibration": [
+    {
+      "id": "hall",
+      "engine": 1,
+      "gain": 2.723,
+      "db": 8.7,
+      "referenceWetRatio": 0.367243469832764
+    },
+    {
+      "id": "room",
+      "engine": 2,
+      "gain": 3.2614,
+      "db": 10.27,
+      "referenceWetRatio": 0.306615167634011
+    },
+    {
+      "id": "space",
+      "engine": 3,
+      "gain": 1.981,
+      "db": 5.94,
+      "referenceWetRatio": 0.504807751339795
+    },
+    {
+      "id": "dragon_hall",
+      "engine": 300,
+      "gain": 0.7594,
+      "db": -2.39,
+      "referenceWetRatio": 1.31688768660968
+    },
+    {
+      "id": "dragon_room",
+      "engine": 301,
+      "gain": 1.378,
+      "db": 2.78,
+      "referenceWetRatio": 0.725708709254818
+    },
+    {
+      "id": "dragon_plate",
+      "engine": 302,
+      "gain": 0.89,
+      "db": -1.01,
+      "referenceWetRatio": 1.123636461860771
+    },
+    {
+      "id": "dragon_early",
+      "engine": 303,
+      "gain": 0.6673,
+      "db": -3.51,
+      "referenceWetRatio": 1.498654488540398
+    },
+    {
+      "id": "cloudseed",
+      "engine": 200,
+      "gain": 2.0618,
+      "db": 6.28,
+      "referenceWetRatio": 0.485005242459279
+    },
+    {
+      "id": "chorus",
+      "engine": 10,
+      "gain": 1.0187,
+      "db": 0.16,
+      "referenceWetRatio": 0.981680107577651
+    },
+    {
+      "id": "ensemble",
+      "engine": 11,
+      "gain": 1.2736,
+      "db": 2.1,
+      "referenceWetRatio": 0.78517121322604
+    },
+    {
+      "id": "flanger",
+      "engine": 12,
+      "gain": 0.5815,
+      "db": -4.71,
+      "referenceWetRatio": 1.719687655062687
+    },
+    {
+      "id": "negative_flanger",
+      "engine": 13,
+      "gain": 0.9647,
+      "db": -0.31,
+      "referenceWetRatio": 1.036547372679797
+    },
+    {
+      "id": "vibrato",
+      "engine": 14,
+      "gain": 1.0316,
+      "db": 0.27,
+      "referenceWetRatio": 0.969331500484073
+    },
+    {
+      "id": "phaser6",
+      "engine": 15,
+      "gain": 0.8671,
+      "db": -1.24,
+      "referenceWetRatio": 1.153291679226064
+    },
+    {
+      "id": "phaser12",
+      "engine": 16,
+      "gain": 0.8932,
+      "db": -0.98,
+      "referenceWetRatio": 1.119533578967406
+    },
+    {
+      "id": "delay",
+      "engine": 20,
+      "gain": 0.9406,
+      "db": -0.53,
+      "referenceWetRatio": 1.063094982652535
+    },
+    {
+      "id": "pingpong",
+      "engine": 21,
+      "gain": 0.9415,
+      "db": -0.52,
+      "referenceWetRatio": 1.062100008091943
+    },
+    {
+      "id": "tape_delay",
+      "engine": 22,
+      "gain": 0.971,
+      "db": -0.26,
+      "referenceWetRatio": 1.029913097442995
+    },
+    {
+      "id": "multitap",
+      "engine": 23,
+      "gain": 1.3725,
+      "db": 2.75,
+      "referenceWetRatio": 0.728616939869165
+    },
+    {
+      "id": "diffuse_delay",
+      "engine": 24,
+      "gain": 0.9446,
+      "db": -0.5,
+      "referenceWetRatio": 1.05862185413872
+    },
+    {
+      "id": "matrix_delay",
+      "engine": 25,
+      "gain": 1.3295,
+      "db": 2.47,
+      "referenceWetRatio": 0.752184770653269
+    },
+    {
+      "id": "air_Galactic",
+      "engine": 100,
+      "gain": 2.1496,
+      "db": 6.65,
+      "referenceWetRatio": 0.46521176772099
+    },
+    {
+      "id": "air_Verbity2",
+      "engine": 101,
+      "gain": 0.367,
+      "db": -8.71,
+      "referenceWetRatio": 2.724798321519419
+    },
+    {
+      "id": "air_StereoChorus",
+      "engine": 102,
+      "gain": 0.967,
+      "db": -0.29,
+      "referenceWetRatio": 1.034170163346666
+    },
+    {
+      "id": "air_ChorusEnsemble",
+      "engine": 103,
+      "gain": 1.4572,
+      "db": 3.27,
+      "referenceWetRatio": 0.68626834369139
+    },
+    {
+      "id": "air_GalacticVibe",
+      "engine": 104,
+      "gain": 1.026,
+      "db": 0.22,
+      "referenceWetRatio": 0.97462375313374
+    },
+    {
+      "id": "air_Chamber2",
+      "engine": 105,
+      "gain": 0.7107,
+      "db": -2.97,
+      "referenceWetRatio": 1.407100581190134
+    },
+    {
+      "id": "air_kPlateA",
+      "engine": 106,
+      "gain": 0.636,
+      "db": -3.93,
+      "referenceWetRatio": 1.5724292701095
+    },
+    {
+      "id": "freeze",
+      "engine": 4,
+      "gain": 2.723,
+      "db": 8.7,
+      "referenceWetRatio": 0.367243469832764
+    },
+    {
+      "id": "phaser4",
+      "engine": 17,
+      "gain": 0.8503,
+      "db": -1.41,
+      "referenceWetRatio": 1.176007316970065
+    },
+    {
+      "id": "spring",
+      "engine": 70,
+      "gain": 1.4537,
+      "db": 3.25,
+      "referenceWetRatio": 0.687916454644975
+    },
+    {
+      "id": "psx",
+      "engine": 71,
+      "gain": 1.5108,
+      "db": 3.58,
+      "referenceWetRatio": 0.661889880067879
+    },
+    {
+      "id": "signalsmith",
+      "engine": 400,
+      "gain": 0.5611,
+      "db": -5.02,
+      "referenceWetRatio": 1.782349026313687
+    },
+    {
+      "id": "mverb",
+      "engine": 401,
+      "gain": 1.0843,
+      "db": 0.7,
+      "referenceWetRatio": 0.922233124694083
+    }
+  ]
+}

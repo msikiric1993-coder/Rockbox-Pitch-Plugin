@@ -1,0 +1,9 @@
+TDSpeed Preview 0.4.1
+
+Open TDSpeedPreview.exe. Audio starts dry; Enable processing applies pitch/effects. Closing hides to tray; Exit restores Windows audio. Audio settings selects a usable cable and speakers. Mix 100% is fully wet. See README.md and docs for controls, troubleshooting, build and release gates.
+
+This version uses separate settings/startup/plugin identities and does not replace your regular installation. Only one TDSpeed can forward audio at a time.
+
+VB-CABLE is by VB-Audio Software, donationware: https://vb-audio.com/Cable/ . The installer bundles the original signed standard driver package unchanged; existing cable drivers are never uninstalled. If the portable app cannot find a usable cable, use the installer.
+
+The application/installer are unsigned. The user accepted the wet reverb sound. Fresh-machine, physical-disconnect, other DPI and intended DAW acceptance remain documented environment-specific limitations.

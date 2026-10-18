@@ -1,0 +1,16 @@
+out/
+build*/
+.vs/
+*.user
+*.suo
+*.pdb
+*.obj
+*.ilk
+*.log
+
+# Generated JUCE example build outputs; keep vendor source/projects.
+**/Builds/VisualStudio*/x64/
+__pycache__/
+*.raw
+
+!JUCE/examples/Assets/teapot.obj

@@ -1,0 +1,34 @@
+TDSpeed includes the original standard VB-CABLE package by VB-Audio Software.
+
+VB-CABLE is donationware. All participations are welcome. You can identify,
+learn about, and donate/pay for VB-CABLE at https://vb-audio.com/Cable/ and
+https://vb-audio.com/Services/licensing.htm . The original package and its
+license are included unchanged in the Drivers\VB-CABLE folder.
+
+TDSpeed reuses an existing usable VB-CABLE or Hi-Fi Cable installation.
+Only the standard VB-CABLE package is bundled. Additional paid cable packs
+are not bundled. Uninstalling TDSpeed does not uninstall any audio driver.
+
+If no cable is installed, setup requests administrator permission for
+VB-Audio's signed driver installer. A Windows restart may be required.
+
+TDSpeed is a personal-use application built with JUCE. JUCE and Microsoft
+runtime components retain their respective licenses. The app and installer
+are unsigned; the bundled VB-Audio driver package is vendor signed.
+
+Effects in version 0.4.1 embed selected Airwindows DSP (MIT), CloudSeedCore
+by Ghost Note Engineering Ltd (MIT), Freeverb3 DSP from Dragonfly Reverb
+(GPL version 2 or later, alongside Dragonfly's GPL version 3 notice),
+ChowMatrix diffusion (BSD 3-clause), and CHOW Tape's magnetic model (GPLv3).
+JUCE modules are available under AGPLv3 or their commercial licence.
+Individual licence texts are in the Licences folder. Corresponding adapted
+source, JUCE source, tests and build instructions are provided in
+Source\TDSpeed-Source-0.4.1.zip. This archive is also included in the portable
+package. Third-party authors retain ownership of their respective code.
+
+These are embedded DSP engines with TDSpeed controls. The app does not load
+the vendors' plugins or reproduce their full plugin interfaces/preset sets.
+The smooth hall is an original Poweramp-inspired listening effect; it is not
+an exact Poweramp reverb clone.
+
+RC additionally embeds Signalsmith Basics/DSP (MIT) and MVerb (GPL-3.0-or-later). Full licence texts and pinned revisions are included.

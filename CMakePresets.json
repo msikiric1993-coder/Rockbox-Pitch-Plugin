@@ -1,0 +1,53 @@
+{
+  "version": 4,
+  "configurePresets": [
+    {
+      "name": "windows-release",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/release",
+      "cacheVariables": {
+        "TDSPEED_BUILD_TESTS": "ON",
+        "CMAKE_CXX_FLAGS": "/MP4 /EHsc"
+      }
+    },
+    {
+      "name": "windows-asan",
+      "inherits": "windows-release",
+      "binaryDir": "${sourceDir}/out/build/asan",
+      "cacheVariables": {
+        "TDSPEED_ENABLE_ASAN": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "windows-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "asan",
+      "configurePreset": "windows-asan",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "release",
+      "configurePreset": "windows-release",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "asan",
+      "configurePreset": "windows-asan",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}
