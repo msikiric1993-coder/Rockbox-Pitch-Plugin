@@ -4,6 +4,7 @@
 #include "EffectsPanel.h"
 #include "UiScale.h"
 #include "FileRender.h"
+#include "RenderedWaveform.h"
 
 class TDSpeedLookAndFeel : public juce::LookAndFeel_V4
 {
@@ -21,28 +22,31 @@ public:
     void resized() override;
     void setEffectsExpanded(bool b){showRack=b;updateSize();}
     bool effectsFit() const {return !showRack || content.getLocalBounds().contains(rackPanel.getBounds());}
-    void setStandaloneMode(){standalone=true;processor.setListeningMode();bypassButton.setVisible(false);uiSize.setVisible(false);for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus,&armCapture,&finishCapture,&cancelCapture,&captureStatus})c->setVisible(false);setUiScale(1);}
+    void setStandaloneMode(){standalone=true;processor.setListeningMode();bypassButton.setVisible(false);uiSize.setVisible(false);for(auto* c:std::initializer_list<juce::Component*>{&timingMode,&createGroup,&joinGroup,&leaveGroup,&syncStatus})c->setVisible(false);setUiScale(1);}
     void setUiScale(float scale){requestedScale=uiScale=scale;updateSize();}
     void setAdvanced(bool b){rackPanel.setAdvanced(b);}
     void refreshEffects(){rackPanel.refreshControls();}
     bool mixNotice() const {return !standalone && !mixExplained && (bool)processor.apvts.state.getProperty("rcMixNotice",false);}
-    int preferredHeight() const {return 466+(standalone?0:136)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
+    int preferredHeight() const {return 432+50+(standalone?0:76)+(hasPreview()?218:0)+(mixNotice()?28:0)+(showRack?rackPanel.preferredHeight():0);}
+    bool hasPreview() const {return processor.preview.audio()!=nullptr;}
     std::function<void()> sizeChanged;
 private:
     void timerCallback() override;
     void updateSize();
-    void armTrackRender();
-    juce::TextButton armCapture{"Arm track render"},finishCapture{"Finish capture"},cancelCapture{"Cancel capture"};
-    juce::Label captureStatus;
     void chooseRenderSource();
     void confirmFileRender(const juce::File&);
-    void chooseRenderDestination(tdFile::Request);
-    juce::TextButton renderButton{"Render slowed file"},cancelRender{"Cancel render"};
-    tdFile::DragButton showRender;
+    void startFileRender(tdFile::Request);
+    void saveRenderedFile();
+    juce::TextButton renderButton{"Render source file"},cancelRender{"Cancel"};
+    juce::TextButton previewPlay{"Play"},previewStop{"Stop"},previewFit{"Fit"},previewSave{"Save As..."};
     std::unique_ptr<juce::FileChooser> renderChooser;
     std::unique_ptr<tdFile::Job> fileJob;
-    juce::File renderedFile;
-    juce::Label renderStatus;
+    std::unique_ptr<tdFile::SaveJob> saveJob;
+    juce::Label renderStatus,previewInfo,sizeLabel;
+    RenderedWaveform waveform;
+    juce::Rectangle<int> previewPanel;
+    double lastPreviewPosition=0;
+    int stalledPreviewTicks=0;
 
     TDSpeedVSTAudioProcessor& processor;
     TDSpeedLookAndFeel theme;

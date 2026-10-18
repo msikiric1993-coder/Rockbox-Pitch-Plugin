@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include <cstdlib>
 #include <new>
+#include <thread>
 static thread_local bool watch=false;static thread_local size_t allocations=0;
 void* operator new(size_t n){if(watch)++allocations;if(auto* p=std::malloc(n?n:1))return p;throw std::bad_alloc();}
 void* operator new[](size_t n){return ::operator new(n);}void operator delete(void* p) noexcept{std::free(p);}void operator delete[](void* p) noexcept{std::free(p);}void operator delete(void* p,size_t) noexcept{std::free(p);}void operator delete[](void* p,size_t) noexcept{std::free(p);}
@@ -88,6 +89,19 @@ int main(){juce::ScopedJuceInitialiser_GUI gui;try{
         require(markerEnergy>.01,"Extended export loses the final source marker");
         require(exportTest.getBufferedTailSeconds()==0,"Silence creates an endless reported pitch tail");
     }
+    // Audition buffers are published off the audio thread. Replacing them while
+    // rendering must neither allocate nor destroy a buffer in the callback.
+    tdPreview::Session preview;
+    auto makeAudio=[](float value){auto data=std::make_unique<tdPreview::Audio>();data->sampleRate=48000;data->samples.setSize(2,4096);for(int c=0;c<2;++c)for(int i=0;i<4096;++i)data->samples.setSample(c,i,value);data->buildPeaks();return data;};
+    preview.install(makeAudio(.1f));std::atomic<bool> done{false};std::atomic<size_t> previewAllocations{0};std::atomic<bool> invalid{false};
+    std::thread callback([&]{juce::AudioBuffer<float> audio(2,257);watch=true;
+        while(!done.load()){if(preview.render(audio,44100))for(int c=0;c<2;++c)for(int i=0;i<257;++i)if(!std::isfinite(audio.getSample(c,i)) || std::abs(audio.getSample(c,i))>.3f)invalid=true;}
+        watch=false;previewAllocations=allocations;
+    });
+    for(int i=0;i<100;++i){preview.install(makeAudio(i%2?.1f:-.1f));preview.play();preview.collect();}
+    done=true;callback.join();preview.collect();require(!invalid && previewAllocations==0,"Audition replacement races, allocates or corrupts output");
+    a.preview.install(makeAudio(.1f));a.preview.play();juce::AudioBuffer<float> auditionBlock(2,257);auditionBlock.clear();
+    watch=true;a.processBlock(auditionBlock,midi);watch=false;require(auditionBlock.getMagnitude(0,257)>.09f,"DAW callback does not audition preview");a.preview.stop();
     require(allocations==0,"DAW audio callback allocates");
     auto editor=std::unique_ptr<juce::AudioProcessorEditor>(a.createEditor());auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(true);ui->setAdvanced(true);for(float scale:{.5f,1.0f,1.25f,1.5f,2.0f}){ui->setUiScale(scale);require(!ui->isResizable() && ui->effectsFit(),"Scaled editor layout invalid");}editor->setSize(400,300);require(ui->effectsFit(),"Host-imposed viewport clips effects");
     std::cout<<"PASS DAW null across callback sizes/order, offline, stops/seeks/loops, latched pitch, linked bypass, recovery, late/skipped history, migration, no allocations, scaling\n";return 0;

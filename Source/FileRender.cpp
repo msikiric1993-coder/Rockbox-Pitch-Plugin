@@ -41,7 +41,7 @@ Result render(const Request& request,std::atomic<float>& progress,const std::fun
         juce::AudioFormatManager formats;formats.registerBasicFormats();
         auto reader=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(request.source));
         if(!reader && ffmpeg.existsAsFile()) {
-            run({ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",request.source.getFullPathName(),"-map","0:a:0","-c:a","pcm_f32le",decoded.getFile().getFullPathName()},cancelled,false);
+            tdFile::run({ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",request.source.getFullPathName(),"-map","0:a:0","-c:a","pcm_f32le",decoded.getFile().getFullPathName()},cancelled,false);
             reader.reset(formats.createReaderFor(decoded.getFile()));
         }
         if(!reader || reader->lengthInSamples<=0 || reader->sampleRate<=0)throw std::runtime_error("Cannot read this audio file. Try WAV, FLAC, MP3, AIFF or M4A");
@@ -53,7 +53,7 @@ Result render(const Request& request,std::atomic<float>& progress,const std::fun
         if(encoded && (!ffmpeg.existsAsFile() || !ffprobe.existsAsFile()))throw std::runtime_error("MP3/AAC/OGG/Opus export needs FFmpeg and ffprobe on PATH. Choose FLAC/WAV/AIFF instead, or install FFmpeg");
         int bitrate=0;
         if(encoded) {
-            const auto metadata=juce::JSON::parse(run({ffprobe.getFullPathName(),"-v","error","-select_streams","a:0","-show_entries","stream=bit_rate:format=bit_rate","-of","json",request.source.getFullPathName()},cancelled));
+            const auto metadata=juce::JSON::parse(tdFile::run({ffprobe.getFullPathName(),"-v","error","-select_streams","a:0","-show_entries","stream=bit_rate:format=bit_rate","-of","json",request.source.getFullPathName()},cancelled));
             const auto streams=metadata["streams"];if(streams.isArray() && streams.size()>0)bitrate=streams[0]["bit_rate"].toString().getIntValue();
             if(bitrate<=0)bitrate=metadata["format"]["bit_rate"].toString().getIntValue();
             if(bitrate<=0)throw std::runtime_error("Could not determine the source bitrate; choose FLAC/WAV/AIFF instead");
@@ -117,12 +117,79 @@ Result render(const Request& request,std::atomic<float>& progress,const std::fun
             if(extension==".m4a" || extension==".aac"){codec="aac";mux=extension==".m4a"?"ipod":"adts";}
             if(extension==".ogg"){codec="libvorbis";mux="ogg";}
             if(extension==".opus"){codec="libopus";mux="opus";}
-            run({ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",intermediate.getFile().getFullPathName(),"-i",request.source.getFullPathName(),"-map","0:a:0","-map_metadata","1","-c:a",codec,"-b:a",juce::String(bitrate),"-ar",juce::String((int)sr),"-f",mux,output.getFile().getFullPathName()},cancelled,false);
+            tdFile::run({ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",intermediate.getFile().getFullPathName(),"-i",request.source.getFullPathName(),"-map","0:a:0","-map_metadata","1","-c:a",codec,"-b:a",juce::String(bitrate),"-ar",juce::String((int)sr),"-f",mux,output.getFile().getFullPathName()},cancelled,false);
         }
         if(cancelled())throw std::runtime_error("Render cancelled");
         if(!output.overwriteTargetFileWithTemporary())throw std::runtime_error("Could not commit output file; check permissions");
         result.file=request.destination;result.duration=total/sr;result.encoded=encoded;progress=1;
     } catch(const std::exception& e){result.error=e.what();}catch(...){result.error="File render failed";}
     return result;
+}
+
+void Job::run() {
+    result=render(request,progress,[this]{return threadShouldExit();});
+    if(loadAudition && result.error.isEmpty()) {
+        try {
+            juce::WavAudioFormat wav;auto input=result.file.createInputStream();if(!input)throw std::runtime_error("Could not open preview file");
+            auto reader=std::unique_ptr<juce::AudioFormatReader>(wav.createReaderFor(input.release(),true));
+            if(!reader || reader->lengthInSamples<=0)throw std::runtime_error("Could not open rendered WAV for preview");
+            if(reader->lengthInSamples>1024LL*1024*1024/(4*reader->numChannels))throw std::runtime_error("Render exceeds the 1 GiB audition limit; choose a shorter source file");
+            auto prepared=std::make_unique<tdPreview::Audio>();prepared->file=result.file;prepared->original=request.source;prepared->sampleRate=reader->sampleRate;prepared->semitones=request.semitones;prepared->temporary=true;
+            prepared->samples.setSize((int)reader->numChannels,(int)reader->lengthInSamples);
+            for(int offset=0;offset<prepared->samples.getNumSamples();offset+=65536) {
+                if(threadShouldExit())throw std::runtime_error("Render cancelled");
+                if(!reader->read(&prepared->samples,offset,juce::jmin(65536,prepared->samples.getNumSamples()-offset),offset,true,true))throw std::runtime_error("Could not read preview audio");
+            }
+            prepared->buildPeaks();audio=std::move(prepared);
+        } catch(const std::exception& e){result.error=e.what();}catch(...){result.error="Could not allocate preview audio";}
+    }
+    if(loadAudition && result.error.isNotEmpty() && result.file.existsAsFile())result.file.deleteFile();
+    done.store(true,std::memory_order_release);
+}
+
+void SaveJob::run() {
+    try {
+        if(destination==original || destination==rendered)throw std::runtime_error("Choose a new filename; the original and temporary render are preserved");
+        if(!rendered.existsAsFile())throw std::runtime_error("Rendered audio is missing; render the source again");
+        juce::TemporaryFile output(destination);const auto ext=destination.getFileExtension().toLowerCase();
+        if(ext==".wav") {
+            if(!rendered.copyFileTo(output.getFile()))throw std::runtime_error("Could not copy WAV; check disk space and permissions");
+        } else if(ext==".flac" || ext==".aif" || ext==".aiff") {
+            juce::WavAudioFormat wav;auto input=rendered.createInputStream();if(!input)throw std::runtime_error("Could not open rendered WAV");
+            auto reader=std::unique_ptr<juce::AudioFormatReader>(wav.createReaderFor(input.release(),true));
+            if(!reader)throw std::runtime_error("Could not open rendered WAV");
+            std::unique_ptr<juce::AudioFormat> format;
+            if(ext==".flac")format=std::make_unique<juce::FlacAudioFormat>();else format=std::make_unique<juce::AiffAudioFormat>();
+            if(reader->usesFloatingPointData || !format->getPossibleBitDepths().contains((int)reader->bitsPerSample))throw std::runtime_error("Use WAV to preserve this render's bit depth");
+            std::unique_ptr<juce::OutputStream> stream=output.getFile().createOutputStream();
+            auto writer=format->createWriterFor(stream,juce::AudioFormatWriterOptions{}.withSampleRate(reader->sampleRate).withNumChannels((int)reader->numChannels).withBitsPerSample((int)reader->bitsPerSample));
+            if(!writer)throw std::runtime_error("Could not create saved file");
+            juce::AudioBuffer<float> block((int)reader->numChannels,65536);
+            for(int64_t offset=0;offset<reader->lengthInSamples;offset+=65536) {
+                if(threadShouldExit())throw std::runtime_error("Save cancelled");
+                const int n=(int)juce::jmin<int64_t>(65536,reader->lengthInSamples-offset);
+                if(!reader->read(&block,0,n,offset,true,true) || !writer->writeFromAudioSampleBuffer(block,0,n))throw std::runtime_error("Save failed; check disk space");
+            }
+        } else {
+            const auto ffmpeg=executable("ffmpeg.exe"),ffprobe=executable("ffprobe.exe");
+            if(!ffmpeg.existsAsFile() || !ffprobe.existsAsFile())throw std::runtime_error("Compressed saving needs FFmpeg and ffprobe on PATH. Save WAV instead, or install FFmpeg");
+            auto cancelled=[this]{return threadShouldExit();};
+            const auto metadata=juce::JSON::parse(tdFile::run({ffprobe.getFullPathName(),"-v","error","-select_streams","a:0","-show_entries","stream=bit_rate:format=bit_rate","-of","json",original.getFullPathName()},cancelled));
+            int bitrate=0;const auto streams=metadata["streams"];if(streams.isArray() && streams.size()>0)bitrate=streams[0]["bit_rate"].toString().getIntValue();
+            if(bitrate<=0)bitrate=metadata["format"]["bit_rate"].toString().getIntValue();
+            // Changing a PCM source to a compressed format uses a clear, bounded music bitrate.
+            bitrate=juce::jlimit(32000,320000,bitrate>0?bitrate:192000);
+            juce::String codec,mux;
+            if(ext==".mp3"){codec="libmp3lame";mux="mp3";}
+            else if(ext==".m4a" || ext==".aac"){codec="aac";mux=ext==".m4a"?"ipod":"adts";}
+            else if(ext==".ogg"){codec="libvorbis";mux="ogg";}
+            else if(ext==".opus"){codec="libopus";mux="opus";}
+            else throw std::runtime_error("Choose WAV, FLAC, AIFF, MP3, M4A, AAC, OGG or Opus");
+            tdFile::run({ffmpeg.getFullPathName(),"-v","error","-nostdin","-y","-i",rendered.getFullPathName(),"-i",original.getFullPathName(),"-map","0:a:0","-map_metadata","1","-c:a",codec,"-b:a",juce::String(bitrate),"-f",mux,output.getFile().getFullPathName()},cancelled,false);
+        }
+        if(threadShouldExit())throw std::runtime_error("Save cancelled");
+        if(!output.overwriteTargetFileWithTemporary())throw std::runtime_error("Could not save file; check permissions");
+    } catch(const std::exception& e){error=e.what();}catch(...){error="Save failed";}
+    done.store(true,std::memory_order_release);
 }
 }

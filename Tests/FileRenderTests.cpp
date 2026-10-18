@@ -45,39 +45,57 @@ int main(int argc,char** argv){juce::ScopedJuceInitialiser_GUI init;try{
         }
 
     }
-    // Arm in real time, capture only offline input, preserve host re-prepare,
-    // bypass callbacks, sample rate and the end marker without live backlog.
+    // Render-to-preview is a worker job, not a save-first workflow. The saved
+    // file and in-memory audition contain the same already-processed samples.
+    request.source=root.getChildFile("Preview music.wav");request.destination=root.getChildFile("Preview slowed.wav");request.semitones=-5;
+    request.rack=tdEffects::captureState(TDSpeedVSTAudioProcessor(2).apvts);
     {
-        TDSpeedVSTAudioProcessor captureProcessor(2);captureProcessor.prepareToPlay(48000,257);
-        const auto rack=tdEffects::captureState(captureProcessor.apvts);const auto destination=root.getChildFile("captured-slow.wav");
-        require(captureProcessor.trackCapture.arm(48000,2,rack,-12,destination),"Cannot arm track capture");
-        juce::AudioBuffer<float> block(2,257);block.clear();block.setSample(0,0,.1f);juce::MidiBuffer events;
-        captureProcessor.processBlock(block,events);require(captureProcessor.trackCapture.capturedFrames()==0,"Real-time playback was written to disk");
-        captureProcessor.prepareToPlay(44100,257);captureProcessor.reset();captureProcessor.setNonRealtime(true);
-        const float backlog=captureProcessor.getBacklogSeconds();
-        for(int pos=0;pos<44100;pos+=257){const int n=juce::jmin(257,44100-pos);block.setSize(2,n,false,false,true);block.clear();
-            for(int c=0;c<2;++c)for(int i=0;i<n;++i)block.setSample(c,i,pos+i==44099?.25f:.04f*std::sin((pos+i)*.03f));
-            auto dry=juce::AudioBuffer<float>(block);if((pos/257)%2)captureProcessor.processBlockBypassed(block,events);else captureProcessor.processBlock(block,events);
-            for(int c=0;c<2;++c)for(int i=0;i<n;++i)require(block.getSample(c,i)==dry.getSample(c,i),"Capture pass changed dry input");
-        }
-        require(captureProcessor.getBacklogSeconds()==backlog,"Capture pass advanced live pitch history");
-        require(captureProcessor.trackCapture.capturedFrames()==44100,"Offline capture lost frames");
-        captureProcessor.setNonRealtime(false);captureProcessor.trackCapture.poll();require(captureProcessor.trackCapture.status()==TrackCapture::ready,"Capture does not finalize after offline render");
-        tdFile::Request captured;captured.source=captureProcessor.trackCapture.file;captured.destination=destination;captured.rack=captureProcessor.trackCapture.rack;captured.semitones=captureProcessor.trackCapture.semitones;
-        auto rendered=tdFile::render(captured,progress,[]{return false;});if(rendered.error.isNotEmpty())throw std::runtime_error(rendered.error.toStdString());
-        auto complete=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(destination));require(complete && complete->lengthInSamples==88200 && complete->sampleRate==44100,"Captured track WAV has incorrect full length/rate");
-        juce::AudioBuffer<float> last(2,8);complete->read(&last,0,8,88192,true,true);require(last.getMagnitude(0,8)>.1f,"Captured track ending was cut off");
-        captureProcessor.trackCapture.markComplete();require(captureProcessor.trackCapture.arm(44100,2,rack,0,root.getChildFile("unused.wav")),"Cannot re-arm");
-        captureProcessor.trackCapture.finishManually();captureProcessor.trackCapture.poll();require(captureProcessor.trackCapture.status()==TrackCapture::failed,"Empty capture falsely succeeds");
+        juce::WavAudioFormat wav;std::unique_ptr<juce::OutputStream> stream=request.source.createOutputStream();
+        auto writer=wav.createWriterFor(stream,juce::AudioFormatWriterOptions{}.withSampleRate(48000).withNumChannels(2).withBitsPerSample(24));
+        juce::AudioBuffer<float> music(2,48000*12);
+        for(int c=0;c<2;++c)for(int i=0;i<music.getNumSamples();++i){const double t=i/48000.;const double envelope=(.4+.6*std::pow(std::sin(t*3.5),2))*std::sin(juce::MathConstants<double>::pi*t/12);music.setSample(c,i,(float)(envelope*(.18*std::sin(t*(1382.3+c*2))+.07*std::sin(t*2073.45)+.04*std::sin(t*3455.75))));}
+        require(writer && writer->writeFromAudioSampleBuffer(music,0,music.getNumSamples()),"Preview fixture write");
     }
-    {
-        TrackCapture discontinuous;require(discontinuous.arm(48000,2,request.rack,0,root.getChildFile("jump.wav")),"Timeline fixture arm");juce::AudioBuffer<float> b(2,32);b.clear();
-        require(discontinuous.push(b,true,48000,1000),"Timeline capture first block");discontinuous.push(b,true,48000,2000);discontinuous.poll();require(discontinuous.status()==TrackCapture::failed,"Capture silently concatenates a timeline jump");
+    tdFile::Job audition(request,true);require(audition.startThread() && audition.waitForThreadToExit(15000),"Preview worker failed");
+    require(audition.result.error.isEmpty() && audition.audio && audition.audio->samples.getNumSamples()>48000*12,"Preview did not load the extended result");
+    require(audition.audio->file==request.destination && audition.audio->sampleRate==48000,"Preview uses wrong file or rate");
+    const float expected=audition.audio->samples.getSample(0,12345);
+    state.prepareToPlay(48000,257);state.preview.install(std::move(audition.audio));
+    juce::AudioBuffer<float> previewBlock(2,257);previewBlock.clear();juce::MidiBuffer midi;
+    state.preview.seek(12345/48000.);state.preview.play();
+    tdEffects::setParameter(state.apvts,"masterOutput",-24);tdEffects::setParameter(state.apvts,"bypass",1);state.processBlock(previewBlock,midi);
+    require(std::abs(previewBlock.getSample(0,0)-expected)<1e-6,"Preview reapplies live pitch, effects or output gain");
+    const auto held=state.preview.position.load();state.preview.playing=false;previewBlock.clear();
+    require(!state.preview.render(previewBlock,48000) && state.preview.position.load()==held,"Pause advances preview or replaces live sound");
+    state.preview.seek(1);state.preview.play();require(state.preview.render(previewBlock,96000),"Preview sample-rate conversion failed");
+    require(std::abs(state.preview.position.load()-(1.+257./96000))<1e-8,"Preview rate conversion changes speed");
+    state.preview.stop();require(!state.preview.playing && state.preview.position.load()==0,"Preview Stop does not rewind");
+    state.preview.play();state.setNonRealtime(true);const auto offlineHeld=state.preview.position.load();previewBlock.clear();state.processBlock(previewBlock,midi);
+    require(previewBlock.getMagnitude(0,257)==0 && state.preview.position.load()==offlineHeld,"Audition contaminates host offline export");state.setNonRealtime(false);state.preview.stop();
+    state.preview.seek(state.preview.audio()->duration()-.00001);state.preview.play();state.preview.render(previewBlock,48000);require(!state.preview.playing,"Preview does not stop at end");
+    state.preview.stop();
+    RenderedWaveform waveform(state.preview);waveform.setSize(748,162);waveform.resetView();const double full=waveform.visibleDuration();
+    waveform.zoom(4,.5);require(std::abs(waveform.visibleDuration()-full/4)<1e-8 && waveform.startTime()>0,"Waveform zoom does not preserve anchor");
+    waveform.zoom(1e10,1);require(waveform.visibleDuration()>=.01999 && waveform.startTime()+waveform.visibleDuration()<=full+.0001,"Waveform zoom bounds invalid");waveform.resetView();
+    tdFile::SaveJob save(request.destination,request.source,root.getChildFile("Saved copy.wav"));require(save.startThread() && save.waitForThreadToExit(5000) && save.error.isEmpty(),"Save As WAV failed");
+    require(save.destination.hasIdenticalContentTo(request.destination),"Save As WAV changes rendered audio");
+    save.destination.replaceWithText("old output");tdFile::SaveJob overwrite(request.destination,request.source,save.destination);require(overwrite.startThread() && overwrite.waitForThreadToExit(5000) && overwrite.error.isEmpty() && overwrite.destination.hasIdenticalContentTo(request.destination),"Save As overwrite fails");
+    tdFile::SaveJob missing(request.destination,request.source,root.getChildFile("missing folder/output.wav"));require(missing.startThread() && missing.waitForThreadToExit(5000) && missing.error.isNotEmpty() && request.destination.existsAsFile(),"Failed Save As loses render or falsely succeeds");
+    tdFile::SaveJob protect(request.destination,request.source,request.source);require(protect.startThread() && protect.waitForThreadToExit(5000) && protect.error.isNotEmpty(),"Save As overwrites original source");
+    tdFile::SaveJob flac(request.destination,request.source,root.getChildFile("Saved copy.flac"));require(flac.startThread() && flac.waitForThreadToExit(5000) && flac.error.isEmpty(),"Save As FLAC failed");
+    auto savedFlac=std::unique_ptr<juce::AudioFormatReader>(formats.createReaderFor(flac.destination));require(savedFlac && savedFlac->lengthInSamples==state.preview.audio()->samples.getNumSamples() && savedFlac->sampleRate==48000 && savedFlac->bitsPerSample==24,"Save As FLAC loses rate/depth/ending");
+    if(argc>1) {
+        tdFile::SaveJob compressed(request.destination,root.getChildFile("input.mp3"),root.getChildFile("Saved copy.mp3"));
+        require(compressed.startThread() && compressed.waitForThreadToExit(15000) && compressed.error.isEmpty(),"Save As compressed failed");
+        require(compressed.destination.getSize()<request.destination.getSize()/3,"Compressed Save As unexpectedly large");
     }
     if(argc>2) {
         auto editor=std::unique_ptr<juce::AudioProcessorEditor>(state.createEditor());
-        auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(true);ui->setAdvanced(true);ui->setUiScale(1);
-        juce::FileOutputStream image{juce::File(argv[2])};juce::PNGImageFormat png;png.writeImageToStream(editor->createComponentSnapshot(editor->getLocalBounds()),image);
+        auto* ui=static_cast<TDSpeedVSTAudioProcessorEditor*>(editor.get());ui->setEffectsExpanded(false);ui->setUiScale(1);
+        require(ui->hasPreview(),"Reopened editor lost rendered waveform");
+        const int normalHeight=ui->getHeight();ui->setEffectsExpanded(true);require(ui->getHeight()>normalHeight,"Effects expansion does not grow waveform editor");ui->setEffectsExpanded(false);
+        for(float scale:{.5f,1.f,1.5f,2.f}){ui->setUiScale(scale);require(ui->effectsFit(),"Scaled preview clips effect controls");}ui->setUiScale(1);
+        juce::FileOutputStream image{juce::File(argv[2])};image.setPosition(0);image.truncate();juce::PNGImageFormat png;png.writeImageToStream(editor->createComponentSnapshot(editor->getLocalBounds()),image);
     }
-    std::cout<<"PASS file render lengths/final sample, 44.1/48/96 and 16/24/32-bit PCM, wet decay, cancellation and source protection; fixtures "<<root.getFullPathName()<<"\n";return 0;
+    std::cout<<"PASS file render lengths/final sample, 44.1/48/96 and 16/24/32-bit PCM, wet decay, cancellation, preview playback/seek/rate/end, offline isolation, waveform zoom/scaling/reopening and Save As WAV/FLAC/overwrite/failure/source protection; fixtures "<<root.getFullPathName()<<"\n";return 0;
 }catch(const std::exception& e){std::cerr<<"FAIL "<<e.what()<<"\n";return 1;}}
