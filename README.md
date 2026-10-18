@@ -52,6 +52,12 @@ To keep multiple processed tracks synchronized:
 
 Pitch changes during playback apply after **Stop/Play**. Grouped tracks share their buffered timing; they cannot stay aligned indefinitely with untreated tracks or different speeds.
 
+## Known issue: shortened DAW exports
+
+In **0.4.1**, slowing audio does not extend the DAW clip or export range. Exporting only the original song length can cut off music still waiting in the plugin's buffer.
+
+**Workaround:** export a longer time selection from the song's beginning. Allow roughly **original duration / playback speed**, plus startup delay and reverb decay. For example, a four-minute song at 50% speed needs about eight minutes. Keep the plugin processing after the clip ends; add a silent extension if your DAW needs one. Automatic effect-tail handling alone may not include the backlog in this version.
+
 ## Source and credits
 
 [Build instructions](docs/BUILD.md) | [Effect guide](docs/EFFECTS.md) | [Troubleshooting](docs/TROUBLESHOOTING.md)
