@@ -1,0 +1,51 @@
+{
+  "version": "0.5.0-touch-ui",
+  "apkSha256": "87893cf5969517b102d172d8ab46ac08f4b7cc12fa26be854b8d78712a2e4760",
+  "staticAudit": {
+    "apk": "TDSpeed-0.5.0-touch-ui.apk",
+    "sha256": "87893cf5969517b102d172d8ab46ac08f4b7cc12fa26be854b8d78712a2e4760",
+    "frameworkStubsAbsent": true,
+    "nativeLibraries": [
+      {
+        "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/arm64-v8a/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "qualification": "Static package audit only; not a 16 KiB runtime test"
+  },
+  "nativeLibrariesByteIdenticalToBaseline": true,
+  "engineHelperProtocolUnchanged": true,
+  "uiTest": "passed on Android 16.1 x86_64 emulator; synthetic display state, no live audio",
+  "physicalPhone": "not connected; not installed or tested on physical phone this turn",
+  "androidAuto": "unchanged; unresolved"
+}

@@ -4,7 +4,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.fyodor.tdspeed.android"
-        minSdk = 33; targetSdk = 36; versionCode = 4; versionName = "0.4.0-simple-1g"
+        minSdk = 33; targetSdk = 36; versionCode = 5; versionName = "0.5.0-touch-ui"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
