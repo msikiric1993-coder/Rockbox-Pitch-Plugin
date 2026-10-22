@@ -1,0 +1,64 @@
+{
+  "version": "0.5.1-varispeed-ui",
+  "apkSha256": "25dd6c44ac8b0c91e499e53b51190a858d33eefd19dd87af53948dab2112edc6",
+  "staticAudit": {
+    "apk": "Varispeed-0.5.1.apk",
+    "sha256": "25dd6c44ac8b0c91e499e53b51190a858d33eefd19dd87af53948dab2112edc6",
+    "frameworkStubsAbsent": true,
+    "nativeLibraries": [
+      {
+        "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/arm64-v8a/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "qualification": "Static package audit only; not a 16 KiB runtime test"
+  },
+  "nativeLibrariesByteIdenticalToFirstSuccessfulBaseline": true,
+  "engineHelperProtocolUnchanged": true,
+  "displayName": "Varispeed; application ID unchanged for update installation",
+  "uiRangeSemitones": [
+    -12,
+    0
+  ],
+  "presets": [
+    -6,
+    -4,
+    -2,
+    -1
+  ],
+  "bufferFill": "backlogSeconds / historyCapacitySeconds, clamped 0..1",
+  "wave": "synthesized illustration controlled by pitch, not captured audio",
+  "uiTest": "passed on Android 16.1 x86_64 emulator; presets, Original pitch, Re-centre, Stop, on/off labels, capacity fraction, Help and minimum button height",
+  "physicalPhone": "not connected; not installed or tested this turn",
+  "androidAuto": "unchanged; unresolved"
+}

@@ -61,7 +61,7 @@ class BridgeService : Service() {
     override fun onCreate() {
         super.onCreate()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
-            NotificationChannel(CHANNEL, "TDSpeed playback", NotificationManager.IMPORTANCE_LOW))
+            NotificationChannel(CHANNEL, "Varispeed playback", NotificationManager.IMPORTANCE_LOW))
         Shizuku.addBinderDeadListener(death)
         executor.scheduleWithFixedDelay({ poll() }, 250, 250, TimeUnit.MILLISECONDS)
     }
@@ -165,7 +165,7 @@ class BridgeService : Service() {
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, BridgeService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("TDSpeed").setContentText(message).setContentIntent(open)
+            .setContentTitle("Varispeed").setContentText(message).setContentIntent(open)
             .setOngoing(true).addAction(Notification.Action.Builder(null, "Stop", stop).build()).build()
     }
     override fun onDestroy() {

@@ -23,7 +23,7 @@ class ListeningScreenTest {
         i.runOnMainSync {
             activity.setContent {
                 ListeningScreen(LabState("RUNNING", data = Bundle().apply {
-                    putFloat("pitchSemitones", -4f); putDouble("backlogSeconds", 12.5)
+                    putFloat("pitchSemitones", -4f); putDouble("backlogSeconds", 279.62027)
                 }), true, {}, { stopped = true }, { requested = it }, { recentered = true })
             }
         }
@@ -48,6 +48,12 @@ class ListeningScreenTest {
             }
             val shot = i.uiAutomation.takeScreenshot()
             File(i.targetContext.filesDir, "touch-ui-running.png").outputStream().use { shot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            assertNotNull(find("Listening (Pitch effect on)"))
+            assertNotNull(find("10.00% filled"))
+            for (value in listOf(-6, -4, -2, -1)) {
+                click(value.toString()); assertEquals(value.toFloat(), requested)
+            }
+            click("+"); assertTrue(requested <= 0f)
             click("Original pitch"); assertEquals(0f, requested)
             // Scroll the content panel to expose the lower buffer action on smaller screens.
             fun scroll(node: AccessibilityNodeInfo): Boolean {
@@ -61,7 +67,10 @@ class ListeningScreenTest {
             // Return to header for Help.
             i.runOnMainSync { activity.recreate() }
             Thread.sleep(1000)
-            click("Help"); assertNotNull(find("Listening with TDSpeed")); click("Got it")
+            assertNotNull(find("Not listening (Pitch effect off)"))
+            val offShot = i.uiAutomation.takeScreenshot()
+            File(i.targetContext.filesDir, "varispeed-off.png").outputStream().use { offShot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            click("Help"); assertNotNull(find("Listening with Varispeed")); click("Got it")
         } finally { i.runOnMainSync { activity.finish() } }
     }
 }
