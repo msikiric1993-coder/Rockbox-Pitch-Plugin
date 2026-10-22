@@ -1,5 +1,10 @@
 # Rockbox Pitch Plugin
 
+Android: the [first successful Android baseline](Android/SIMPLE_1G_STATUS.md)
+provides coupled pitch/speed, Original pitch, Re-centre and a 1 GiB RAM buffer.
+Read its Shizuku startup requirements before use. The preserved APK and exact
+validation evidence are in [Android releases](Android/releases/0.4.0-simple-1g/).
+
 A Windows listening app and VST3 inspired by Rockbox's pitch control: lower pitch slows the music down; higher pitch speeds it up. The song's length changes too.
 
 I loved listening to slowed-down songs on my Sansa Clip Zip running Rockbox when I was younger. I couldn't find the same experience as a live effect on PC, so I made this.

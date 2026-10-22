@@ -1,0 +1,56 @@
+{
+  "result": "passed",
+  "device": "samsung\/e3qxeea\/e3q:16\/BP4A.251205.006\/S928BXXS6DZI1:user\/release-keys",
+  "apkSha256": "932d2c59a34d37401e16a769f02b59b5cd8351d98728eb225c0f0f7bcfda610a",
+  "observations": [
+    {
+      "label": "minus12",
+      "frames": 23808,
+      "pitch": 0.5000014305114746,
+      "backlogSeconds": 0.2895050952459375,
+      "appliedCommand": 2,
+      "recenterCount": 0
+    },
+    {
+      "label": "history_accumulated",
+      "frames": 168704,
+      "pitch": 0.5000014305114746,
+      "backlogSeconds": 1.798834110341966,
+      "appliedCommand": 2,
+      "recenterCount": 0
+    },
+    {
+      "label": "zero_pitch_retains_delay",
+      "frames": 219648,
+      "pitch": 0.9999985694885254,
+      "backlogSeconds": 1.7993304171773294,
+      "appliedCommand": 3,
+      "recenterCount": 0
+    },
+    {
+      "label": "recenter_one_shot",
+      "frames": 230400,
+      "pitch": 0.9999985694885254,
+      "backlogSeconds": 0.25000031280517576,
+      "appliedCommand": 4,
+      "recenterCount": 1
+    },
+    {
+      "label": "recenter_survives_next_pitch_command",
+      "frames": 231168,
+      "pitch": 0.7937019467353821,
+      "backlogSeconds": 0.2541968875763317,
+      "appliedCommand": 6,
+      "recenterCount": 2
+    },
+    {
+      "label": "plus4",
+      "frames": 235008,
+      "pitch": 1.259918212890625,
+      "backlogSeconds": 0.2338647727742791,
+      "appliedCommand": 7,
+      "recenterCount": 2
+    }
+  ],
+  "scope": "Live synthetic stereo source through RAM engine and speaker route; music\/car listening separate"
+}

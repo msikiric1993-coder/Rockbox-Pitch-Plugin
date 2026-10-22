@@ -1,0 +1,86 @@
+{
+  "format": "TDSP1F01 little endian",
+  "fixtureSha256": "5415c6c5279134c3b58b2a34f19e8803052190924205523a196c712bd6d960f1",
+  "oracle": "Actual Windows 0.4.2-rc.1 shared-code library, dry listening mode",
+  "desktopComparison": {
+    "cases": 24,
+    "stereoSamplesCompared": 26334000,
+    "maximumAbsoluteError": 0,
+    "tolerance": 1e-06
+  },
+  "signals": [
+    "440/659 Hz stereo tones",
+    "stereo ramp",
+    "deterministic stereo noise",
+    "offset channel impulses"
+  ],
+  "scenarios": [
+    "unity",
+    "-12",
+    "-4",
+    "+4",
+    "pitch changes",
+    "recenter then zero return",
+    "history full",
+    "caught live input"
+  ],
+  "sampleRates": [
+    44100,
+    48000,
+    96000
+  ],
+  "windowsInputs": [
+    {
+      "path": "Source/PluginProcessor.cpp",
+      "sha256": "34af8c138f5ad618ca7c77835fc4b8f8aaf901cbb42cf6c643de72a04977d02c"
+    },
+    {
+      "path": "Source/PluginProcessor.h",
+      "sha256": "391eb53d784b9186c883f2d35dbf86f850fc387a9d394266df961fc54fbbc175"
+    },
+    {
+      "path": "Source/EffectsRack.cpp",
+      "sha256": "adaee94ee2225a803cfc8ee8abfa63be5e60942057fdcf3e6e262f547fc3db49"
+    },
+    {
+      "path": "Source/EffectsRack.h",
+      "sha256": "b8333886e6694ac52511b671fce6d85291fb1e980406a078226377943954b7e3"
+    },
+    {
+      "path": "Source/FractionalDelay.h",
+      "sha256": "19348f702034043149ba330344ceb08142394fbc606606ed970ee6e3e6afa3f4"
+    },
+    {
+      "path": "Source/Standalone/WasapiEngine.cpp",
+      "sha256": "3e6c5dd34471a6ae4465d888ff957f44242da7ab124ba244e6dc214260dc49ac"
+    },
+    {
+      "path": "CMakeLists.txt",
+      "sha256": "2a644437f0b40ce86c6ace1ea14acb68f600ed69a781f4d083b6e51cdaae0695"
+    },
+    {
+      "path": "LICENSE",
+      "sha256": "0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0"
+    },
+    {
+      "path": "Source/ThirdParty/VERSIONS.md",
+      "sha256": "ac27f1c14873f06f4af3e9990b00fded6de4e0cebe4b50c9a4b037e4e911e29d"
+    },
+    {
+      "path": "D:\\Code\\TDSpeedVST\\RC build\\0.4.2-rc.1\\build\\TDSpeedTests.vcxproj",
+      "sha256": "0f948cccd5150fc66a18567c1dd7fe79a82389ecfc784ede014f1ece2b7a4ce2"
+    },
+    {
+      "path": "D:\\Code\\TDSpeedVST\\RC build\\0.4.2-rc.1\\build\\TDSpeedVST_artefacts\\Release\\TDSpeedPreview_SharedCode.lib",
+      "sha256": "8c9eb4bc4d7914df5cc95f1c014023d4f3d63536642696bbae51400b42cdd983"
+    },
+    {
+      "path": "D:\\Code\\TDSpeedVST\\RC build\\0.4.2-rc.1\\build\\Release\\TDSpeedEffectsEngines.lib",
+      "sha256": "2cc87d451aba7bce7ed522cd32a39603bf7939b72d7b1babb5b711f4eb72edba"
+    }
+  ],
+  "comparisonHarnessSha256": "159ee2f7618fec86c0f65c267a2d8db9eae889d91a7cff6c7d5f19b4fa65fbce",
+  "coreSha256": "2ceda11b026479d6820bcd5c2830ddbef5fba7ca35ed6a042a78c0afb3e1f3c2",
+  "androidScope": "Three stereo checkpoint frames and recovery/backlog state per variable-sized block. Desktop compares every sample.",
+  "arm64Runtime": "not_tested"
+}

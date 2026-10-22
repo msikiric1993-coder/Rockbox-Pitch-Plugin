@@ -1,0 +1,277 @@
+{
+  "version": "0.4.0-simple-1g",
+  "apkSha256": "932d2c59a34d37401e16a769f02b59b5cd8351d98728eb225c0f0f7bcfda610a",
+  "audit": {
+    "apk": "TDSpeed-0.4.0-simple-1g.apk",
+    "sha256": "932d2c59a34d37401e16a769f02b59b5cd8351d98728eb225c0f0f7bcfda610a",
+    "frameworkStubsAbsent": true,
+    "nativeLibraries": [
+      {
+        "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/arm64-v8a/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "qualification": "Static package audit only; not a 16 KiB runtime test"
+  },
+  "nativeTests": 8,
+  "nativeTestApkSha256": "775979ca2a59c7803563f3b215c4b8b9061d849810e2f04b7a312e7141755cdc",
+  "oneGiBAllocation": {
+    "result": "passed",
+    "historyBytes": 1073741824,
+    "beforeNativeBytes": 7589568,
+    "allocatedNativeBytes": 1081335200,
+    "afterCloseNativeBytes": 7584944,
+    "capacityFrames": 134217728,
+    "device": "samsung/e3qxeea/e3q:16/BP4A.251205.006/S928BXXS6DZI1:user/release-keys"
+  },
+  "livePitch": {
+    "result": "passed",
+    "device": "samsung/e3qxeea/e3q:16/BP4A.251205.006/S928BXXS6DZI1:user/release-keys",
+    "apkSha256": "932d2c59a34d37401e16a769f02b59b5cd8351d98728eb225c0f0f7bcfda610a",
+    "observations": [
+      {
+        "label": "minus12",
+        "frames": 23808,
+        "pitch": 0.5000014305114746,
+        "backlogSeconds": 0.2895050952459375,
+        "appliedCommand": 2,
+        "recenterCount": 0
+      },
+      {
+        "label": "history_accumulated",
+        "frames": 168704,
+        "pitch": 0.5000014305114746,
+        "backlogSeconds": 1.798834110341966,
+        "appliedCommand": 2,
+        "recenterCount": 0
+      },
+      {
+        "label": "zero_pitch_retains_delay",
+        "frames": 219648,
+        "pitch": 0.9999985694885254,
+        "backlogSeconds": 1.7993304171773294,
+        "appliedCommand": 3,
+        "recenterCount": 0
+      },
+      {
+        "label": "recenter_one_shot",
+        "frames": 230400,
+        "pitch": 0.9999985694885254,
+        "backlogSeconds": 0.25000031280517576,
+        "appliedCommand": 4,
+        "recenterCount": 1
+      },
+      {
+        "label": "recenter_survives_next_pitch_command",
+        "frames": 231168,
+        "pitch": 0.7937019467353821,
+        "backlogSeconds": 0.2541968875763317,
+        "appliedCommand": 6,
+        "recenterCount": 2
+      },
+      {
+        "label": "plus4",
+        "frames": 235008,
+        "pitch": 1.259918212890625,
+        "backlogSeconds": 0.2338647727742791,
+        "appliedCommand": 7,
+        "recenterCount": 2
+      }
+    ],
+    "scope": "Live synthetic stereo source through RAM engine and speaker route; music/car listening separate"
+  },
+  "routingCycles": {
+    "cycles": [
+      {
+        "cycle": 1,
+        "frames": 76800,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 2,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 3,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 4,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 5,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 6,
+        "frames": 22016,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 7,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 8,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 9,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 10,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 11,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 12,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 13,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 14,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 15,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 16,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 17,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 18,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 19,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 20,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 21,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 22,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 23,
+        "frames": 19968,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 24,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 25,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 26,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 27,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 28,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 29,
+        "frames": 20992,
+        "state": "STOPPED"
+      },
+      {
+        "cycle": 30,
+        "frames": 18176,
+        "state": "STOPPED"
+      }
+    ],
+    "device": "samsung/e3qxeea/e3q:16/BP4A.251205.006/S928BXXS6DZI1:user/release-keys",
+    "apkSha256": "932d2c59a34d37401e16a769f02b59b5cd8351d98728eb225c0f0f7bcfda610a",
+    "controllerLeaseExpiryPassed": true,
+    "result": "passed",
+    "scope": "Synthetic source on the recorded device speaker route; no commercial-source or car qualification"
+  },
+  "bluetooth": "not_tested",
+  "androidAuto": "not_tested",
+  "longSoak": "not_tested",
+  "signing": "development debug key",
+  "audioStorage": "RAM only; no audio files"
+}

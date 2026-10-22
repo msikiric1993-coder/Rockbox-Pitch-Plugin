@@ -1,0 +1,13 @@
+{
+  "result": "passed",
+  "fixtureSha256": "5415c6c5279134c3b58b2a34f19e8803052190924205523a196c712bd6d960f1",
+  "cases": 24,
+  "comparedSparseSamples": 315750,
+  "maxAbsSampleError": 0,
+  "maxBacklogSecondsError": 2.3839695373339964E-7,
+  "tolerance": 1.0E-6,
+  "device": "samsung\/e3qxeea\/e3q:16\/BP4A.251205.006\/S928BXXS6DZI1:user\/release-keys",
+  "runtimeAbis": "arm64-v8a",
+  "nativeIdentity": "tdspeed-p0\/1 arm64-v8a stereo-float32",
+  "scope": "JNI dry core against Windows reference checkpoints; not live routing or car qualification"
+}

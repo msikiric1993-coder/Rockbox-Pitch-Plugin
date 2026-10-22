@@ -1,0 +1,50 @@
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:29: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val ruleClass = Class.forName("android.media.audiopolicy.AudioMixingRule")
+                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:30: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val ruleBuilderClass = Class.forName("android.media.audiopolicy.AudioMixingRule\$Builder")
+                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:42: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val mixClass = Class.forName("android.media.audiopolicy.AudioMix")
+                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:43: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val mixBuilderClass = Class.forName("android.media.audiopolicy.AudioMix\$Builder")
+                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:51: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val policyBuilderClass = Class.forName("android.media.audiopolicy.AudioPolicy\$Builder")
+                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\LoopbackPolicy.kt:55: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+            val listenerClass = Class.forName("android.media.audiopolicy.AudioPolicy\$AudioPolicyFocusListener")
+                                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\ShellAttribution.kt:13: Warning: Accessing internal APIs via reflection is not supported and may not work on all devices or in the future [PrivateApi]
+        val application = Class.forName("android.app.ActivityThread")
+                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "PrivateApi":
+   Using reflection to access hidden/private Android APIs is not safe; it will
+   often not work on devices from other vendors, and it may suddenly stop
+   working (if the API is removed) or crash spectacularly (if the API behavior
+   changes, since there are no guarantees for compatibility).
+
+   https://developer.android.com/preview/restrictions-non-sdk-interfaces
+
+D:\Code\TDSpeedVST\Android\shell-audio\build.gradle.kts:13: Warning: A newer version of androidx.annotation:annotation than 1.9.1 is available: 1.11.0 [GradleDependency]
+    implementation("androidx.annotation:annotation:1.9.1")
+                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   Explanation for issues of type "GradleDependency":
+   This detector looks for usages of libraries where the version you are using
+   is not the current stable release. Using older versions is fine, and there
+   are cases where you deliberately want to stick with an older version.
+   However, you may simply not be aware that a more recent version is
+   available, and that is what this lint check helps find.
+
+D:\Code\TDSpeedVST\Android\shell-audio\src\main\java\com\fyodor\tdspeed\shell\AudioUserService.kt:37: Warning: Use of scheduleAtFixedRate is strongly discouraged because it can lead to unexpected behavior when Android processes become cached (tasks may unexpectedly execute hundreds or thousands of times in quick succession when a process changes from cached to uncached); prefer using scheduleWithFixedDelay [DiscouragedApi]
+        watchdog.scheduleAtFixedRate({
+        ^
+
+   Explanation for issues of type "DiscouragedApi":
+   Discouraged APIs are allowed and are not deprecated, but they may be unfit
+   for common use (e.g. due to slow performance or subtle behavior).
+
+0 errors, 9 warnings

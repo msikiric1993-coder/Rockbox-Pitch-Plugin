@@ -1,0 +1,47 @@
+{
+  "package": "TDSpeed Android architecture and manifesto",
+  "architectureBaseline": "2026-10-20",
+  "status": "specification_before_device_validation",
+  "minimumAndroidApi": 33,
+  "firstDeviceTarget": "Samsung Galaxy S24 Ultra",
+  "apkIncluded": false,
+  "validation": {
+    "markdownLinksAndAnchors": "passed",
+    "codeFences": "passed",
+    "compatibilityTemplateJson": "passed",
+    "compatibilityTestsAllNotTested": "passed",
+    "localReferenceHashesVerified": 9
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 6283,
+      "sha256": "635794f77e5fea1b6578c2b563d44341db481ac7fc45e4d3d70aa7b922ea2854"
+    },
+    {
+      "path": "ARCHITECTURE.md",
+      "bytes": 26195,
+      "sha256": "d5ee7bd63bf3546198addada1b2d00be2e9762ce250a8861d7424b6a58e0f301"
+    },
+    {
+      "path": "IMPLEMENTATION_PLAN.md",
+      "bytes": 11388,
+      "sha256": "fae6ab86bcabfb76b882d5bbada3071cc30364adb088fede00b32b482ab176b0"
+    },
+    {
+      "path": "INSTALLATION_AND_VALIDATION.md",
+      "bytes": 9451,
+      "sha256": "d6adc3361b4c6b30edf19d0a18f52c990a90e6d3d34ba1dc38314726cc7206d5"
+    },
+    {
+      "path": "SOURCES.md",
+      "bytes": 9133,
+      "sha256": "63ddc8e1fab10ed6cd426d12e0a5e1c74b111e87e2dc7b005ab33da71310d839"
+    },
+    {
+      "path": "compatibility-template.json",
+      "bytes": 3786,
+      "sha256": "672efb88c1aa12908384a113851ad6e7695841d1b47ee469819baa4eb50457fb"
+    }
+  ]
+}

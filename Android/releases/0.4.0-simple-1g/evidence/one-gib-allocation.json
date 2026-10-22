@@ -1,0 +1,9 @@
+{
+  "result": "passed",
+  "historyBytes": 1073741824,
+  "beforeNativeBytes": 7589568,
+  "allocatedNativeBytes": 1081335200,
+  "afterCloseNativeBytes": 7584944,
+  "capacityFrames": 134217728,
+  "device": "samsung\/e3qxeea\/e3q:16\/BP4A.251205.006\/S928BXXS6DZI1:user\/release-keys"
+}
