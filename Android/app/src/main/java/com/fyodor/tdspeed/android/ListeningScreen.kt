@@ -2,6 +2,9 @@ package com.fyodor.tdspeed.android
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,10 +19,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlinx.coroutines.delay
 import kotlin.math.sin
 import kotlin.math.PI
 import androidx.compose.ui.semantics.contentDescription
@@ -40,6 +39,7 @@ private val Border = Color(0xff304047)
 private val Yellow = Color(0xffefca72)
 private val Red = Color(0xffff8585)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ListeningScreen(
     state: LabState, connected: Boolean, onStart: () -> Unit, onStop: () -> Unit,
@@ -55,8 +55,20 @@ internal fun ListeningScreen(
         val pitch = state.data.getFloat("pitchSemitones").coerceIn(-12f, 0f)
         var selected by remember { mutableFloatStateOf(pitch) }
         var dragging by remember { mutableStateOf(false) }
-        LaunchedEffect(pitch, running) { if (!dragging) selected = pitch }
-        val shown = if (dragging) selected else pitch
+        var pending by remember { mutableStateOf<Float?>(null) }
+        LaunchedEffect(pitch, running) {
+            if (!running) { selected = pitch; pending = null; dragging = false }
+            else if (pending == null || kotlin.math.abs(pitch - pending!!) < .051f) {
+                pending = null
+                if (!dragging) selected = pitch
+            }
+        }
+        fun requestPitch(value: Float) {
+            val next = (value.coerceIn(-12f, 0f) * 10).roundToInt() / 10f
+            selected = next; pending = next
+            onPitch(next)
+        }
+        val shown = selected
         val delay = if (running) state.data.getDouble("backlogSeconds", .25).coerceAtLeast(0.0) else 0.0
         val capacity = state.data.getDouble("historyCapacitySeconds", 134217728.0 / 48000.0).coerceAtLeast(.25)
         val fill = (delay / capacity).coerceIn(0.0, 1.0).toFloat()
@@ -92,41 +104,53 @@ internal fun ListeningScreen(
                 }
                 Rack {
                     Text("PITCH & SPEED", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Column {
-                            Text("%.1f".format(shown), color = Ink, fontSize = if (compact) 46.sp else 54.sp,
-                                fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
-                            Text("SEMITONES", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.height(76.dp), contentAlignment = Alignment.BottomCenter) {
+                                Text("%.1f".format(shown), color = Ink, fontSize = if (compact) 44.sp else 50.sp,
+                                    fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                            }
+                            Text("SEMITONES", color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
                         }
-                        Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(bottom = 3.dp)) {
-                            Text("%.1f%%".format(100 * 2.0.pow(shown / 12.0)), color = Mint, fontSize = if (compact) 20.sp else 24.sp,
-                                fontFamily = FontFamily.Monospace)
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.height(76.dp), contentAlignment = Alignment.BottomCenter) {
+                                Text("%.1f%%".format(100 * 2.0.pow(shown / 12.0)), color = Mint,
+                                    fontSize = if (compact) 28.sp else 32.sp, fontWeight = FontWeight.Medium,
+                                    fontFamily = FontFamily.Monospace, modifier = Modifier.padding(bottom = 7.dp))
+                            }
                             Text("PLAYBACK SPEED", color = Muted, fontSize = 10.sp, letterSpacing = 1.sp)
                         }
                     }
                     StretchVisual(shown, listening)
-                    Slider(value = if (dragging) selected else pitch,
-                        onValueChange = { dragging = true; selected = (it * 10).roundToInt() / 10f },
-                        onValueChangeFinished = { onPitch(selected); dragging = false },
+                    Slider(value = selected,
+                        onValueChange = {
+                            dragging = true
+                            val next = (it * 10).roundToInt() / 10f
+                            if (next != selected) requestPitch(next)
+                        },
+                        onValueChangeFinished = { dragging = false },
+                        thumb = {
+                            Box(Modifier.size(36.dp).background(if (running) Mint else Muted, CircleShape)
+                                .border(3.dp, Background, CircleShape))
+                        },
                         valueRange = -12f..0f, enabled = running,
                         colors = SliderDefaults.colors(inactiveTrackColor = Border, inactiveTickColor = Border,
                             activeTickColor = Mint, disabledInactiveTrackColor = Border),
-                        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 64.dp)
                             .semantics { contentDescription = "Pitch in semitones" })
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("½ SPEED", color = Muted, fontSize = 10.sp)
                         Text("ORIGINAL", color = Muted, fontSize = 10.sp)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        TouchButton("−", running, { onPitch((pitch - .1f).coerceAtLeast(-12f)) }, Modifier.weight(1f), "Lower pitch by 0.1 semitone")
-                        TouchButton("Original pitch", running, { onPitch(0f) }, Modifier.weight(2.6f))
-                        TouchButton("+", running, { onPitch((pitch + .1f).coerceAtMost(0f)) }, Modifier.weight(1f), "Raise pitch by 0.1 semitone")
+                        TouchButton("−", running, { requestPitch(selected - .1f) }, Modifier.weight(1f), "Lower pitch by 0.1 semitone")
+                        TouchButton("Original pitch", running, { requestPitch(0f) }, Modifier.weight(2.6f))
+                        TouchButton("+", running, { requestPitch(selected + .1f) }, Modifier.weight(1f), "Raise pitch by 0.1 semitone")
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         for (value in listOf(-6f, -4f, -2f, -1f)) {
-                            val chosen = kotlin.math.abs(pitch - value) < .05f
-                            OutlinedButton(onClick = { onPitch(value) }, enabled = running,
+                            val chosen = kotlin.math.abs(selected - value) < .05f
+                            OutlinedButton(onClick = { requestPitch(value) }, enabled = running,
                                 modifier = Modifier.weight(1f).heightIn(min = 52.dp), shape = RoundedCornerShape(14.dp),
                                 border = BorderStroke(1.dp, if (chosen && running) Mint else Border),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = if (chosen) Mint else Muted)) {
@@ -167,7 +191,7 @@ internal fun ListeningScreen(
             }
         }
         if (help) AlertDialog(onDismissRequest = { help = false }, title = { Text("Listening with Varispeed") },
-            text = { Text("Start Shizuku, play music in your source app, then tap Start listening.\n\nKeep Developer options and USB debugging enabled; no cable or PC is needed while Shizuku is running. Start Shizuku again after reboot.\n\nPitch and speed change together. The slider goes from −12 to 0 semitones. Original pitch keeps your delay; Re-centre jumps near live. The yellow animation illustrates stretching; it is not a recording or live waveform. Buffer fill is the accumulated delay divided by the full history capacity.\n\nThe 1 GiB buffer is held in memory. Stop clears it. Android Auto support is still being investigated.") },
+            text = { Text("Start Shizuku, play music in your source app, then tap Start listening.\n\nKeep Developer options and USB debugging enabled; no cable or PC is needed while Shizuku is running. Start Shizuku again after reboot.\n\nPitch and speed change together. The slider goes from −12 to 0 semitones. Original pitch keeps your delay; Re-centre jumps near live. The two waveforms illustrate the same segment: the lower one stretches in time as you slow playback. They are not live audio. Buffer fill is the accumulated delay divided by the full history capacity.\n\nThe 1 GiB buffer is held in memory. Stop clears it. Android Auto support is still being investigated.") },
             confirmButton = { TextButton(onClick = { help = false }) { Text("Got it") } })
     }
 }
@@ -190,52 +214,33 @@ private fun TouchButton(label: String, enabled: Boolean, action: () -> Unit, mod
 }
 
 
-/** Synthesized illustration only. Animation stays on the UI side and stops off-screen. */
+/** Same illustrative segment shown on a common time scale; no audio-thread work. */
 @Composable
 private fun StretchVisual(semitones: Float, enabled: Boolean) {
-    val owner = LocalLifecycleOwner.current
-    var foreground by remember(owner) { mutableStateOf(owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
-    DisposableEffect(owner) {
-        val observer = LifecycleEventObserver { _, _ ->
-            foreground = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
-        }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer) }
-    }
-    var phase by remember { mutableFloatStateOf(0f) }
     val rate = 2.0.pow(semitones / 12.0).toFloat()
-    val currentRate by rememberUpdatedState(rate)
-    LaunchedEffect(enabled, foreground) {
-        if (enabled && foreground && android.animation.ValueAnimator.areAnimatorsEnabled()) {
-            var previous = 0L
-            while (true) {
-                withFrameNanos { now ->
-                    if (previous != 0L) phase = (phase + ((now - previous) / 1e9f).coerceAtMost(.1f) * currentRate * 2f) % (2f * PI.toFloat())
-                    previous = now
-                }
-                delay(32) // Decorative visualization: about 30 frames/second, no audio polling.
-            }
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Canvas(Modifier.fillMaxWidth().height(46.dp).semantics {
-            contentDescription = "Illustrative pitch stretching visualization; not live audio"
+    val stretch = 1f / rate
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text("SAME SEGMENT · %.0f%% LONGER".format((stretch - 1) * 100), color = Muted, fontSize = 9.sp)
+        Canvas(Modifier.fillMaxWidth().height(40.dp).semantics {
+            contentDescription = "Illustration: the same audio segment takes %.2f times as long".format(stretch)
         }) {
-            val mid = size.height / 2
-            drawLine(Border, Offset(0f, mid), Offset(size.width, mid), 1.dp.toPx())
-            if (enabled) {
+            fun segment(y: Float, width: Float, color: Color) {
                 val path = Path()
-                for (i in 0..240) {
-                    val x = size.width * i / 240f
-                    val t = i / 240f * (8f * PI.toFloat()) * rate - phase
-                    val envelope = .55f + .45f * sin(i / 240f * PI.toFloat())
-                    val y = mid + (sin(t) + .23f * sin(2.7f * t)) * size.height * .3f * envelope
-                    if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                for (i in 0..180) {
+                    val t = i / 180f
+                    val envelope = sin(t * PI.toFloat())
+                    val v = sin(t * 10 * PI.toFloat()) * envelope
+                    val pointY = y - v * size.height * .16f
+                    if (i == 0) path.moveTo(0f, pointY) else path.lineTo(t * width, pointY)
                 }
-                drawPath(path, Yellow.copy(alpha = .12f), style = Stroke(9.dp.toPx(), cap = StrokeCap.Round))
-                drawPath(path, Yellow, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                drawLine(Border, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+                drawPath(path, color, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
+                drawLine(color, Offset(width, y - 9.dp.toPx()), Offset(width, y + 9.dp.toPx()), 1.dp.toPx())
             }
+            val base = size.width * .46f
+            segment(size.height * .25f, base, Muted)
+            segment(size.height * .75f, base * stretch, if (enabled) Yellow else Muted.copy(alpha = .4f))
         }
-        Text("PITCH VISUALIZATION", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
+        Text("Grey: original · Yellow: slowed (illustration)", color = Muted, fontSize = 9.sp)
     }
 }

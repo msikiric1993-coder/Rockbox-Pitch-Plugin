@@ -1,0 +1,52 @@
+{
+  "version": "0.5.3-responsive-slider",
+  "apkSha256": "051033f48e946b1e93dd34afc37dc2a14e0509f3158a530564b0e5f642679cb5",
+  "staticAudit": {
+    "apk": "Varispeed-0.5.3.apk",
+    "sha256": "051033f48e946b1e93dd34afc37dc2a14e0509f3158a530564b0e5f642679cb5",
+    "frameworkStubsAbsent": true,
+    "nativeLibraries": [
+      {
+        "path": "lib/arm64-v8a/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/arm64-v8a/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libandroidx.graphics.path.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384
+        ]
+      },
+      {
+        "path": "lib/x86_64/libtdspeed_probe.so",
+        "loadSegmentAlignmentBytes": [
+          16384,
+          16384,
+          16384,
+          16384
+        ]
+      }
+    ],
+    "qualification": "Static package audit only; not a 16 KiB runtime test"
+  },
+  "nativeLibrariesByteIdenticalToBaseline": true,
+  "engineHelperProtocolUnchanged": true,
+  "uiTests": "2 passed on Android 16.1 emulator, including held-finger continuous pitch changes and stale-snapshot handling",
+  "physicalPhone": "Installed over existing app on Samsung SM-S928B; live service observed RUNNING with nonzero music input and changing pitch",
+  "userConfirmation": "Yes, it follows smoothly now",
+  "androidAuto": "Not implemented; unchanged original music remains reported symptom; no verified diagnosis or fix"
+}

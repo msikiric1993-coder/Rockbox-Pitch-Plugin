@@ -1,0 +1,299 @@
+
+> Configure project :app
+w: file:///D:/Code/TDSpeedVST/Android/app/build.gradle.kts:15:21: 'jvmTarget: String' is deprecated. Please migrate to the compilerOptions DSL. More details are here: https://kotl.in/u1r8ln
+
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:generateDebugBuildConfig
+> Task :dsp-native:preBuild UP-TO-DATE
+> Task :dsp-native:preDebugBuild UP-TO-DATE
+> Task :dsp-native:writeDebugAarMetadata UP-TO-DATE
+> Task :protocol:preBuild UP-TO-DATE
+> Task :protocol:preDebugBuild UP-TO-DATE
+> Task :protocol:writeDebugAarMetadata UP-TO-DATE
+> Task :shell-audio:preBuild UP-TO-DATE
+> Task :shell-audio:preDebugBuild UP-TO-DATE
+> Task :shell-audio:writeDebugAarMetadata UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :dsp-native:processDebugNavigationResources UP-TO-DATE
+> Task :protocol:processDebugNavigationResources UP-TO-DATE
+> Task :shell-audio:processDebugNavigationResources UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :dsp-native:generateDebugResValues UP-TO-DATE
+> Task :dsp-native:generateDebugResources UP-TO-DATE
+> Task :dsp-native:packageDebugResources UP-TO-DATE
+> Task :protocol:generateDebugResValues UP-TO-DATE
+> Task :protocol:generateDebugResources UP-TO-DATE
+> Task :protocol:packageDebugResources UP-TO-DATE
+> Task :shell-audio:generateDebugResValues UP-TO-DATE
+> Task :shell-audio:generateDebugResources UP-TO-DATE
+> Task :shell-audio:packageDebugResources UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :dsp-native:extractDeepLinksDebug UP-TO-DATE
+> Task :dsp-native:processDebugManifest UP-TO-DATE
+> Task :protocol:extractDeepLinksDebug UP-TO-DATE
+> Task :protocol:processDebugManifest UP-TO-DATE
+> Task :shell-audio:extractDeepLinksDebug UP-TO-DATE
+> Task :shell-audio:processDebugManifest UP-TO-DATE
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :dsp-native:compileDebugLibraryResources UP-TO-DATE
+> Task :dsp-native:parseDebugLocalResources UP-TO-DATE
+> Task :dsp-native:generateDebugRFile UP-TO-DATE
+> Task :protocol:compileDebugLibraryResources UP-TO-DATE
+> Task :protocol:parseDebugLocalResources UP-TO-DATE
+> Task :protocol:generateDebugRFile UP-TO-DATE
+> Task :shell-audio:compileDebugLibraryResources UP-TO-DATE
+> Task :shell-audio:parseDebugLocalResources UP-TO-DATE
+> Task :shell-audio:generateDebugRFile UP-TO-DATE
+> Task :dsp-native:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :dsp-native:compileDebugKotlin UP-TO-DATE
+> Task :dsp-native:javaPreCompileDebug UP-TO-DATE
+> Task :dsp-native:compileDebugJavaWithJavac NO-SOURCE
+> Task :dsp-native:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :protocol:compileDebugAidl UP-TO-DATE
+> Task :protocol:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :protocol:compileDebugKotlin UP-TO-DATE
+> Task :protocol:javaPreCompileDebug UP-TO-DATE
+> Task :protocol:compileDebugJavaWithJavac UP-TO-DATE
+> Task :protocol:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :hidden-api-stubs:preBuild UP-TO-DATE
+> Task :hidden-api-stubs:preDebugBuild UP-TO-DATE
+> Task :hidden-api-stubs:generateDebugResValues UP-TO-DATE
+> Task :hidden-api-stubs:generateDebugResources UP-TO-DATE
+> Task :hidden-api-stubs:packageDebugResources UP-TO-DATE
+> Task :hidden-api-stubs:processDebugNavigationResources UP-TO-DATE
+> Task :hidden-api-stubs:parseDebugLocalResources UP-TO-DATE
+> Task :hidden-api-stubs:generateDebugRFile UP-TO-DATE
+> Task :hidden-api-stubs:javaPreCompileDebug UP-TO-DATE
+> Task :hidden-api-stubs:compileDebugJavaWithJavac UP-TO-DATE
+> Task :hidden-api-stubs:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :shell-audio:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :shell-audio:compileDebugKotlin UP-TO-DATE
+> Task :app:processDebugManifestForPackage
+> Task :shell-audio:javaPreCompileDebug UP-TO-DATE
+> Task :shell-audio:compileDebugJavaWithJavac NO-SOURCE
+> Task :shell-audio:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :dsp-native:mergeDebugShaders UP-TO-DATE
+> Task :dsp-native:compileDebugShaders NO-SOURCE
+> Task :dsp-native:generateDebugAssets UP-TO-DATE
+> Task :dsp-native:mergeDebugAssets UP-TO-DATE
+> Task :protocol:mergeDebugShaders UP-TO-DATE
+> Task :protocol:compileDebugShaders NO-SOURCE
+> Task :protocol:generateDebugAssets UP-TO-DATE
+> Task :protocol:mergeDebugAssets UP-TO-DATE
+> Task :shell-audio:mergeDebugShaders UP-TO-DATE
+> Task :shell-audio:compileDebugShaders NO-SOURCE
+> Task :shell-audio:generateDebugAssets UP-TO-DATE
+> Task :shell-audio:mergeDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :shell-audio:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :protocol:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :dsp-native:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :dsp-native:processDebugJavaRes UP-TO-DATE
+> Task :protocol:processDebugJavaRes UP-TO-DATE
+> Task :shell-audio:processDebugJavaRes UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :shell-audio:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :protocol:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :dsp-native:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :dsp-native:configureCMakeDebug[arm64-v8a]
+> Task :dsp-native:buildCMakeDebug[arm64-v8a]
+> Task :dsp-native:configureCMakeDebug[x86_64]
+> Task :dsp-native:buildCMakeDebug[x86_64]
+> Task :dsp-native:mergeDebugJniLibFolders UP-TO-DATE
+> Task :dsp-native:mergeDebugNativeLibs UP-TO-DATE
+> Task :dsp-native:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :protocol:mergeDebugJniLibFolders UP-TO-DATE
+> Task :protocol:mergeDebugNativeLibs NO-SOURCE
+> Task :protocol:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :shell-audio:mergeDebugJniLibFolders UP-TO-DATE
+> Task :shell-audio:mergeDebugNativeLibs NO-SOURCE
+> Task :shell-audio:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :app:mergeDebugNativeLibs UP-TO-DATE
+> Task :app:stripDebugDebugSymbols UP-TO-DATE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:preDebugAndroidTestBuild SKIPPED
+> Task :app:processDebugAndroidTestManifest UP-TO-DATE
+> Task :app:generateDebugAndroidTestBuildConfig UP-TO-DATE
+> Task :app:checkDebugAndroidTestAarMetadata UP-TO-DATE
+> Task :app:processDebugAndroidTestNavigationResources UP-TO-DATE
+> Task :app:compileDebugAndroidTestNavigationResources UP-TO-DATE
+> Task :app:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :app:mapDebugAndroidTestSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugAndroidTestResources UP-TO-DATE
+> Task :app:mergeDebugAndroidTestResources UP-TO-DATE
+> Task :app:processDebugAndroidTestResources UP-TO-DATE
+> Task :app:javaPreCompileDebugAndroidTest UP-TO-DATE
+> Task :app:mergeDebugAndroidTestShaders UP-TO-DATE
+> Task :app:compileDebugAndroidTestShaders NO-SOURCE
+> Task :app:generateDebugAndroidTestAssets UP-TO-DATE
+> Task :app:mergeDebugAndroidTestAssets UP-TO-DATE
+> Task :app:compressDebugAndroidTestAssets UP-TO-DATE
+> Task :app:desugarDebugAndroidTestFileDependencies UP-TO-DATE
+> Task :app:checkDebugAndroidTestDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebugAndroidTest UP-TO-DATE
+> Task :app:mergeLibDexDebugAndroidTest UP-TO-DATE
+> Task :app:mergeDebugAndroidTestJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugAndroidTestNativeLibs NO-SOURCE
+> Task :app:stripDebugAndroidTestDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebugAndroidTest UP-TO-DATE
+> Task :app:writeDebugAndroidTestSigningConfigVersions UP-TO-DATE
+> Task :protocol:checkDebugAarMetadata UP-TO-DATE
+> Task :protocol:stripDebugDebugSymbols NO-SOURCE
+> Task :protocol:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :protocol:extractDebugAnnotations UP-TO-DATE
+> Task :protocol:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :protocol:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :protocol:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :protocol:prepareDebugArtProfile UP-TO-DATE
+> Task :protocol:prepareLintJarForPublish UP-TO-DATE
+> Task :protocol:mergeDebugJavaResource UP-TO-DATE
+> Task :protocol:syncDebugLibJars UP-TO-DATE
+> Task :protocol:bundleDebugLocalLintAar UP-TO-DATE
+> Task :shell-audio:checkDebugAarMetadata UP-TO-DATE
+> Task :shell-audio:stripDebugDebugSymbols NO-SOURCE
+> Task :shell-audio:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :shell-audio:extractDebugAnnotations UP-TO-DATE
+> Task :shell-audio:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :shell-audio:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :shell-audio:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :shell-audio:prepareDebugArtProfile UP-TO-DATE
+> Task :shell-audio:prepareLintJarForPublish UP-TO-DATE
+> Task :shell-audio:mergeDebugJavaResource UP-TO-DATE
+> Task :shell-audio:syncDebugLibJars UP-TO-DATE
+> Task :shell-audio:bundleDebugLocalLintAar UP-TO-DATE
+> Task :dsp-native:checkDebugAarMetadata UP-TO-DATE
+> Task :dsp-native:stripDebugDebugSymbols UP-TO-DATE
+> Task :dsp-native:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :dsp-native:extractDebugAnnotations UP-TO-DATE
+> Task :dsp-native:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :dsp-native:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :dsp-native:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :dsp-native:prepareDebugArtProfile UP-TO-DATE
+> Task :dsp-native:prepareLintJarForPublish UP-TO-DATE
+> Task :dsp-native:mergeDebugJavaResource UP-TO-DATE
+> Task :dsp-native:syncDebugLibJars UP-TO-DATE
+> Task :dsp-native:bundleDebugLocalLintAar UP-TO-DATE
+> Task :dsp-native:createFullJarDebug UP-TO-DATE
+> Task :dsp-native:writeDebugLintModelMetadata UP-TO-DATE
+> Task :protocol:createFullJarDebug UP-TO-DATE
+> Task :protocol:writeDebugLintModelMetadata UP-TO-DATE
+> Task :shell-audio:createFullJarDebug UP-TO-DATE
+> Task :shell-audio:writeDebugLintModelMetadata UP-TO-DATE
+> Task :app:extractProguardFiles UP-TO-DATE
+> Task :dsp-native:extractProguardFiles UP-TO-DATE
+> Task :dsp-native:generateDebugLintModel UP-TO-DATE
+> Task :protocol:extractProguardFiles UP-TO-DATE
+> Task :protocol:generateDebugLintModel UP-TO-DATE
+> Task :hidden-api-stubs:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :hidden-api-stubs:processDebugJavaRes NO-SOURCE
+> Task :hidden-api-stubs:createFullJarDebug UP-TO-DATE
+> Task :hidden-api-stubs:extractProguardFiles UP-TO-DATE
+> Task :hidden-api-stubs:processDebugManifest UP-TO-DATE
+> Task :hidden-api-stubs:generateDebugLintModel UP-TO-DATE
+> Task :hidden-api-stubs:prepareLintJarForPublish UP-TO-DATE
+> Task :shell-audio:extractProguardFiles UP-TO-DATE
+> Task :shell-audio:generateDebugLintModel UP-TO-DATE
+> Task :app:preDebugUnitTestBuild UP-TO-DATE
+> Task :dsp-native:lintAnalyzeDebug UP-TO-DATE
+> Task :protocol:lintAnalyzeDebug UP-TO-DATE
+> Task :hidden-api-stubs:checkDebugAarMetadata UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugJniLibFolders UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugNativeLibs NO-SOURCE
+> Task :hidden-api-stubs:stripDebugDebugSymbols NO-SOURCE
+> Task :hidden-api-stubs:copyDebugJniLibsProjectAndLocalJars UP-TO-DATE
+> Task :hidden-api-stubs:extractDebugAnnotations UP-TO-DATE
+> Task :hidden-api-stubs:extractDeepLinksForAarDebug UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugShaders UP-TO-DATE
+> Task :hidden-api-stubs:compileDebugShaders NO-SOURCE
+> Task :hidden-api-stubs:generateDebugAssets UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugAssets UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugGeneratedProguardFiles UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugConsumerProguardFiles UP-TO-DATE
+> Task :hidden-api-stubs:prepareDebugArtProfile UP-TO-DATE
+> Task :hidden-api-stubs:mergeDebugJavaResource UP-TO-DATE
+> Task :hidden-api-stubs:syncDebugLibJars UP-TO-DATE
+> Task :hidden-api-stubs:writeDebugAarMetadata UP-TO-DATE
+> Task :hidden-api-stubs:bundleDebugLocalLintAar UP-TO-DATE
+> Task :hidden-api-stubs:lintAnalyzeDebug UP-TO-DATE
+> Task :hidden-api-stubs:writeDebugLintModelMetadata UP-TO-DATE
+> Task :shell-audio:lintAnalyzeDebug UP-TO-DATE
+> Task :dsp-native:preDebugAndroidTestBuild UP-TO-DATE
+> Task :dsp-native:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :dsp-native:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :dsp-native:preDebugUnitTestBuild UP-TO-DATE
+> Task :dsp-native:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :dsp-native:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :dsp-native:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :protocol:preDebugAndroidTestBuild UP-TO-DATE
+> Task :protocol:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :protocol:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :protocol:preDebugUnitTestBuild UP-TO-DATE
+> Task :protocol:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :protocol:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :protocol:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :shell-audio:preDebugAndroidTestBuild UP-TO-DATE
+> Task :shell-audio:generateDebugAndroidTestResValues UP-TO-DATE
+> Task :shell-audio:generateDebugAndroidTestLintModel UP-TO-DATE
+> Task :shell-audio:preDebugUnitTestBuild UP-TO-DATE
+> Task :shell-audio:generateDebugUnitTestLintModel UP-TO-DATE
+> Task :shell-audio:lintAnalyzeDebugAndroidTest UP-TO-DATE
+> Task :shell-audio:lintAnalyzeDebugUnitTest UP-TO-DATE
+> Task :app:processDebugResources
+> Task :app:compileDebugKotlin
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:bundleDebugClassesToCompileJar
+> Task :app:mergeProjectDexDebug
+> Task :app:generateDebugLintReportModel
+> Task :app:generateDebugAndroidTestLintModel
+> Task :app:generateDebugUnitTestLintModel
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect
+> Task :app:assembleDebug
+> Task :app:lintAnalyzeDebugUnitTest
+> Task :app:compileDebugAndroidTestKotlin
+> Task :app:compileDebugAndroidTestJavaWithJavac UP-TO-DATE
+> Task :app:dexBuilderDebugAndroidTest
+> Task :app:mergeDebugAndroidTestGlobalSynthetics UP-TO-DATE
+> Task :app:processDebugAndroidTestJavaRes UP-TO-DATE
+> Task :app:mergeDebugAndroidTestJavaResource UP-TO-DATE
+> Task :app:mergeProjectDexDebugAndroidTest
+> Task :app:packageDebugAndroidTest
+> Task :app:createDebugAndroidTestApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebugAndroidTest
+> Task :app:lintAnalyzeDebugAndroidTest
+> Task :app:lintAnalyzeDebug
+
+> Task :app:lintReportDebug
+Wrote HTML report to file:///D:/Code/TDSpeedVST/Android/app/build/reports/lint-results-debug.html
+
+> Task :app:lintDebug
+
+BUILD SUCCESSFUL in 5s
+241 actionable tasks: 29 executed, 212 up-to-date
