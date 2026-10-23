@@ -11,4 +11,6 @@ interface IAudioBridge {
     void setDiagnostic(long sessionId, long commandId, float gain, boolean swap) = 5;
     Bundle snapshot() = 6;
     void setListening(long sessionId, long commandId, float semitones, boolean recenter) = 7;
+    void startConfigured(long sessionId, long commandId, IBinder owner, in Bundle options) = 8;
+    Bundle collectRouteReport() = 9;
 }

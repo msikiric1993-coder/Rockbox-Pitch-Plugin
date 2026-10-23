@@ -62,17 +62,25 @@ class AudioUserService @Keep constructor(private val context: Context) : IAudioB
         }
     }
     override fun start(sessionId: Long, commandId: Long, owner: IBinder) {
+        startConfigured(sessionId, commandId, owner, Bundle())
+    }
+    override fun startConfigured(sessionId: Long, commandId: Long, owner: IBinder, options: Bundle) {
         authorize()
+        val allowCarCapture = options.getBoolean("allowCarCapture", false)
         synchronized(lock) { lease.begin(sessionId, commandId, SystemClock.elapsedRealtime()); state = "PREPARING"; errorDetail = "" }
         try { owner.linkToDeath(ownerDeath, 0); this.owner = owner }
         catch (error: Throwable) { synchronized(lock) { lease.end() }; state = "ERROR"; throw error }
         control.execute {
             try {
                 check(context.checkPermission("android.permission.MODIFY_AUDIO_ROUTING", Process.myPid(), Process.myUid()) == PackageManager.PERMISSION_GRANTED) { "PERMISSION_DENIED: MODIFY_AUDIO_ROUTING" }
-                val created = DiagnosticPipeline(context, expectedUid) { error -> enqueueStop("AUDIO_FAILURE: ${describe(error)}") }
+                val created = DiagnosticPipeline(context, expectedUid, allowCarCapture) { error -> enqueueStop("AUDIO_FAILURE: ${describe(error)}") }
                 pipeline = created; created.start(); state = "RUNNING"
             } catch (error: Throwable) { stopInternal("START_FAILED: ${describe(error)}") }
         }
+    }
+    override fun collectRouteReport(): Bundle {
+        authorize()
+        return RouteReport.collect(context, snapshot())
     }
     override fun heartbeat(sessionId: Long) { authorize(); synchronized(lock) { lease.heartbeat(sessionId, SystemClock.elapsedRealtime()) } }
     override fun stop(sessionId: Long, commandId: Long) {

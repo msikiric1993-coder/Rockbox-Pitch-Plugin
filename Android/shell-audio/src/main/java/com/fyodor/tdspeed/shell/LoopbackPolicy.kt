@@ -21,6 +21,7 @@ internal class LoopbackPolicy(
     private var policy: Any? = null
     var record: AudioRecord? = null; private set
     var focusAttached = false; private set
+    var registrationAddress = ""; private set
     private val policyClass = Class.forName("android.media.audiopolicy.AudioPolicy")
 
     fun open(): AudioRecord {
@@ -61,6 +62,7 @@ internal class LoopbackPolicy(
             policy = created // Own registration before any subsequent failure can occur.
             focusAttached = true
             val address = mixClass.getMethod("getRegistration").invoke(mix) as String
+            registrationAddress = address
             val attributesBuilder = AudioAttributes.Builder()
             attributesBuilder.javaClass.getMethod("setInternalCapturePreset", Int::class.javaPrimitiveType).invoke(attributesBuilder, 8)
             attributesBuilder.javaClass.getMethod("addTag", String::class.java).invoke(attributesBuilder, "addr=$address")
@@ -96,6 +98,7 @@ internal class LoopbackPolicy(
                 .exceptionOrNull()?.let(errors::add)
         }
         policy = null
+        registrationAddress = ""
         if (errors.isNotEmpty()) throw IllegalStateException("CLEANUP_INCOMPLETE: audio policy", errors.first())
     }
     companion object { fun bytesPerSample(encoding: Int) = if (encoding == AudioFormat.ENCODING_PCM_FLOAT) 4 else 2 }

@@ -1,7 +1,7 @@
 package com.fyodor.tdspeed.protocol
 
 object Protocol {
-    const val VERSION = 2
+    const val VERSION = 3
     const val SAMPLE_RATE = 48_000
     const val CHANNELS = 2
     const val QUANTUM = 256

@@ -4,11 +4,22 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.fyodor.tdspeed.android"
-        minSdk = 33; targetSdk = 36; versionCode = 8; versionName = "0.5.3-responsive-slider"
+        minSdk = 33; targetSdk = 36; versionCode = 9; versionName = "0.6.0-car-lab"
+        manifestPlaceholders["appLabel"] = "Varispeed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
-    buildTypes { debug { applicationIdSuffix = ".debug" }; release { isMinifyEnabled = false } }
+    buildTypes {
+        debug { applicationIdSuffix = ".debug"; buildConfigField("boolean", "CAR_LAB", "false") }
+        release { isMinifyEnabled = false; buildConfigField("boolean", "CAR_LAB", "false") }
+        create("carLab") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".carlab"
+            matchingFallbacks += listOf("debug")
+            manifestPlaceholders["appLabel"] = "Varispeed Car Lab"
+            buildConfigField("boolean", "CAR_LAB", "true")
+        }
+    }
     buildFeatures { compose = true; buildConfig = true }
     packaging { jniLibs { useLegacyPackaging = true } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }

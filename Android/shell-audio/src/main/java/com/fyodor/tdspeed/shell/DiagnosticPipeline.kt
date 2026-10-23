@@ -19,7 +19,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
 /** P2 first slice: dry varispeed with bounded RAM history; car handling remains unqualified. */
-internal class DiagnosticPipeline(private val context: Context, private val ownerUid: Int, private val fatal: (Throwable) -> Unit) {
+internal class DiagnosticPipeline(private val context: Context, private val ownerUid: Int,
+    private val allowCarCapture: Boolean = false, private val fatal: (Throwable) -> Unit) {
     private val active = AtomicBoolean(false)
     private val manager = context.getSystemService(AudioManager::class.java)
     private var policy: LoopbackPolicy? = null
@@ -46,6 +47,10 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
     @Volatile private var encoding = AudioFormat.ENCODING_PCM_FLOAT
     @Volatile private var mode = manager.mode
     @Volatile private var route = "unknown"
+    @Volatile private var outputAddress = ""
+    @Volatile private var inputAddress = ""
+    @Volatile private var outputDeviceId = -1
+    @Volatile private var inputDeviceId = -1
     @Volatile private var reason = "PREPARING"
     private val modeListener = AudioManager.OnModeChangedListener { mode = it }
     private val modeExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
@@ -99,7 +104,8 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
         check(minimum > 0) { "FORMAT_UNSUPPORTED: AudioTrack $minimum" }
         return AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).setAllowedCapturePolicy(AudioAttributes.ALLOW_CAPTURE_BY_NONE).build())
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).setAllowedCapturePolicy(
+                    if (allowCarCapture) AudioAttributes.ALLOW_CAPTURE_BY_ALL else AudioAttributes.ALLOW_CAPTURE_BY_NONE).build())
             .setAudioFormat(AudioFormat.Builder().setSampleRate(Protocol.SAMPLE_RATE).setEncoding(formatEncoding)
                 .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO).build())
             .setBufferSizeInBytes(maxOf(minimum * 2, Protocol.QUANTUM * 2 * LoopbackPolicy.bytesPerSample(formatEncoding) * 4))
@@ -119,6 +125,7 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
         val engineState = ByteBuffer.allocateDirect(64).order(ByteOrder.nativeOrder())
         val processor = checkNotNull(varispeed)
         var resetGeneration = 0L
+        var routeRefreshAt = 0L
         var playing = false
         try {
             while (active.get()) {
@@ -161,12 +168,25 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
                 frames += count / 2; progressAt = SystemClock.elapsedRealtime()
                 reason = if (attenuation == 0f) "INTERRUPTED_CANDIDATE" else if (recovery != 0) "BUFFER_RECOVERY"
                     else if (inputPeak > 0.00001f) "SIGNAL_PRESENT" else "SOURCE_IDLE_OR_UNVERIFIED"
-                output.routedDevice?.let { route = "${it.type}:${it.productName}" }
+                val now = SystemClock.elapsedRealtime()
+                if (now >= routeRefreshAt) {
+                    val sink = output.routedDevice
+                    route = sink?.let { "${it.type}:${it.productName}" } ?: "unrouted"
+                    outputAddress = sink?.address.orEmpty(); outputDeviceId = sink?.id ?: -1
+                    val source = record.routedDevice
+                    inputAddress = source?.address.orEmpty(); inputDeviceId = source?.id ?: -1
+                    routeRefreshAt = now + 250
+                }
             }
         } catch (error: Throwable) { if (active.get()) fatal(error) }
     }
 
     fun snapshot() = Bundle().apply {
+        putBoolean("allowCarCapture", allowCarCapture)
+        putString("outputCapturePolicy", if (allowCarCapture) "ALLOW_CAPTURE_BY_ALL" else "ALLOW_CAPTURE_BY_NONE")
+        putString("captureMixAddress", policy?.registrationAddress.orEmpty())
+        putString("outputDeviceAddress", outputAddress); putInt("outputDeviceId", outputDeviceId)
+        putString("inputDeviceAddress", inputAddress); putInt("inputDeviceId", inputDeviceId)
         putLong("framesForwarded", frames); putFloat("inputPeak", inputPeak); putFloat("outputPeak", outputPeak)
         putFloat("diagnosticGain", gain); putBoolean("swapChannels", swap)
         putFloat("pitchSemitones", appliedPitch); putLong("appliedListeningCommand", appliedCommand)

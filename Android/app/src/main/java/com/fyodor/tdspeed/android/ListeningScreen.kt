@@ -44,6 +44,7 @@ private val Red = Color(0xffff8585)
 internal fun ListeningScreen(
     state: LabState, connected: Boolean, onStart: () -> Unit, onStop: () -> Unit,
     onPitch: (Float) -> Unit, onRecenter: () -> Unit,
+    carLab: CarLabOptions? = null,
 ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Mint, onPrimary = Background,
         background = Background, surface = Panel, onSurface = Ink, onSurfaceVariant = Muted,
@@ -102,6 +103,7 @@ internal fun ListeningScreen(
                     Canvas(Modifier.size(7.dp)) { drawCircle(if (listening) Mint else Red) }
                     Text("$status (Pitch effect ${if (listening) "on" else "off"})", color = if (listening) Mint else Red, fontSize = 13.sp)
                 }
+                if (carLab != null) CarLabControls(carLab, state, active)
                 Rack {
                     Text("PITCH & SPEED", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

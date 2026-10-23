@@ -28,6 +28,8 @@ class BridgeService : Service() {
     private val binder = LocalBinder()
     private val owner = Binder()
     private val executor = Executors.newSingleThreadScheduledExecutor()
+    private val reportExecutor = Executors.newSingleThreadExecutor()
+    private var allowCarCapture = false
     @Volatile private var remote: IAudioBridge? = null
     private var binding = false
     private var pendingStart = false
@@ -72,9 +74,13 @@ class BridgeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
+                val requestedCarCapture = BuildConfig.CAR_LAB && intent.getBooleanExtra("allowCarCapture", true)
                 startForeground(NOTIFICATION, notification("Listening · tap to open controls"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                 foreground = true
-                executor.execute { pendingStart = true; if (remote != null) beginSession() else connectInternal() }
+                executor.execute {
+                    if (session == 0L) allowCarCapture = requestedCarCapture
+                    pendingStart = true; if (remote != null) beginSession() else connectInternal()
+                }
             }
             ACTION_STOP -> executor.execute { stopSession() }
         }
@@ -98,7 +104,7 @@ class BridgeService : Service() {
         if (session != 0L) { pendingStart = false; return }
         try {
             session = SystemClock.elapsedRealtimeNanos().coerceAtLeast(1); command = 1; pendingStart = false; pendingStop = false
-            remote!!.start(session, command, owner)
+            remote!!.startConfigured(session, command, owner, Bundle().apply { putBoolean("allowCarCapture", allowCarCapture) })
             val manager = getSystemService(PowerManager::class.java)
             wake = manager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "TDSpeed:stereo-forwarding").apply { setReferenceCounted(false); acquire(600_000) }
             wakeRenewAt = SystemClock.elapsedRealtime() + 540_000
@@ -117,6 +123,18 @@ class BridgeService : Service() {
             if (session == 0L || pendingStop) return@execute
             try { remote?.setListening(session, ++command, semitones, recenter) }
             catch (error: Throwable) { failed(error) }
+        }
+    }
+    fun routeReport(result: (String?, String?) -> Unit) {
+        // Never queue a potentially slow dumpsys request ahead of the lease heartbeat.
+        reportExecutor.execute {
+            try {
+                val bridge = remote ?: error("Start a listening session with Shizuku first")
+                val report = JSONObject(export(LabState("REPORT", "User-requested route report", bridge.collectRouteReport())))
+                    .put("version", BuildConfig.VERSION_NAME).put("applicationId", packageName)
+                    .put("carLab", BuildConfig.CAR_LAB)
+                result(report.toString(2), null)
+            } catch (error: Exception) { result(null, error.message ?: "Could not collect route report") }
         }
     }
     private fun poll() {
@@ -176,6 +194,7 @@ class BridgeService : Service() {
             wake?.let { if (it.isHeld) it.release() }; wake = null
         }
         executor.shutdown()
+        reportExecutor.shutdown()
         super.onDestroy()
     }
     companion object {
