@@ -1,0 +1,47 @@
+{
+  "version": "0.7.0",
+  "versionCode": 13,
+  "applicationId": "com.fyodor.tdspeed.android.debug",
+  "label": "Varispeed",
+  "apkSha256": "2dae4a69b788be6075769cb0eacfbecc9d068adfd866d7e6d8819962d1c0e5cd",
+  "installedVia": "wireless ADB",
+  "installedApkHashVerified": true,
+  "phone": "Samsung SM-S928B",
+  "emulatorRoutingCases": 15,
+  "emulatorRoutingResult": "passed",
+  "originalCarAudioVerifiedAfterStopInBothOrders": true,
+  "unitSuites": [
+    {
+      "name": "com.fyodor.tdspeed.protocol.FocusOwnerGateTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.fyodor.tdspeed.protocol.PolicyMixSnapshotTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.fyodor.tdspeed.protocol.ProjectionDiscoveryTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "name": "com.fyodor.tdspeed.protocol.SessionLeaseTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0
+    }
+  ],
+  "scopedUiTests": 4,
+  "scopedUiResult": "passed",
+  "legacyShizukuIntegrationTests": "not included in scoped UI run; emulator Shizuku not initialized",
+  "appAndHelperLint": "passed",
+  "nativeLibrariesByteIdenticalTo": "0.5.3",
+  "samsungNativeCapabilityProbe": "passed",
+  "physicalCarStatus": "0.6.3 successful per user; 0.7.0 first Stop pending car confirmation",
+  "githubUploadAtValidationTime": false
+}

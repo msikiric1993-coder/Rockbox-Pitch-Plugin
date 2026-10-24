@@ -102,6 +102,7 @@ class AudioUserService @Keep constructor(private val context: Context) : IAudioB
         authorize()
         return Bundle().apply {
             putAll(pipeline?.snapshot() ?: lastAudio)
+            putBoolean("audioMetricsFromStoppedSession", pipeline == null && !lastAudio.isEmpty)
             putString("state", state); putString("error", errorDetail); putString("nativeIdentity", nativeIdentity)
             putBoolean("policyRegistered", pipeline?.policyRegistered == true)
             putInt("protocolVersion", Protocol.VERSION); putInt("helperUid", Process.myUid())
@@ -117,7 +118,8 @@ class AudioUserService @Keep constructor(private val context: Context) : IAudioB
     private fun stopInternal(reason: String) {
         state = "STOPPING"
         pipeline?.let { lastAudio = it.snapshot() }
-        val cleanup = runCatching { pipeline?.stop() }.exceptionOrNull(); pipeline = null
+        val cleanup = runCatching { pipeline?.stop() }.exceptionOrNull()
+        pipeline?.let { lastAudio.putAll(it.stopDiagnostics()) }; pipeline = null
         runCatching { owner?.unlinkToDeath(ownerDeath, 0) }; owner = null
         synchronized(lock) { completedSession = lease.sessionId; lease.end() }
         stopRequestedAt = 0

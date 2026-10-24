@@ -4,6 +4,7 @@ package android.media;
 public final class AudioFocusInfo {
     public AudioAttributes getAttributes() { throw new UnsupportedOperationException(); }
     public int getClientUid() { throw new UnsupportedOperationException(); }
+    public String getClientId() { throw new UnsupportedOperationException(); }
     public int getLossReceived() { throw new UnsupportedOperationException(); }
     public String getPackageName() { throw new UnsupportedOperationException(); }
 }

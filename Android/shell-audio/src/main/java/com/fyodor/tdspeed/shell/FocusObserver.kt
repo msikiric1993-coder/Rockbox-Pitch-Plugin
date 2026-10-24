@@ -6,15 +6,23 @@ import android.media.AudioManager
 import android.media.audiopolicy.AudioPolicy
 import android.os.SystemClock
 import java.util.concurrent.CopyOnWriteArrayList
+import com.fyodor.tdspeed.protocol.FocusOwnerGate
 
 /** Observes only; never installs a governing focus policy or requests focus from the source. */
-internal class FocusObserver : AudioPolicy.AudioPolicyFocusListener() {
+internal class FocusObserver(private val trackFocusOwner: Boolean = false) : AudioPolicy.AudioPolicyFocusListener() {
+    private val gate = FocusOwnerGate()
     @Volatile var attenuation = 1f; private set
     @Volatile var eventCount = 0L; private set
     private val events = CopyOnWriteArrayList<String>()
 
     override fun onAudioFocusGrant(info: AudioFocusInfo, requestResult: Int) {
         record("grant", info)
+        if (trackFocusOwner) {
+            gate.grant("${info.clientUid}:${info.clientId}", info.attributes.usage in mediaUsages,
+                requestResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED)
+            attenuation = gate.attenuation
+            return
+        }
         if (requestResult != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         if (info.attributes.usage in mediaUsages) attenuation = 1f
         // Candidate protection for navigation/calls; P0 traces must establish actual device behaviour.
@@ -22,6 +30,12 @@ internal class FocusObserver : AudioPolicy.AudioPolicyFocusListener() {
     }
     override fun onAudioFocusLoss(info: AudioFocusInfo, wasNotified: Boolean) {
         record("loss", info)
+        if (trackFocusOwner) {
+            gate.loss("${info.clientUid}:${info.clientId}", info.attributes.usage in mediaUsages,
+                info.lossReceived == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK)
+            attenuation = gate.attenuation
+            return
+        }
         if (info.attributes.usage in mediaUsages) {
             attenuation = if (info.lossReceived == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK) 0.2f else 0f
         }

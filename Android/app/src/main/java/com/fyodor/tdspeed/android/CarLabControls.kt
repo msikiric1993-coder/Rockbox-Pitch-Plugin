@@ -15,19 +15,27 @@ import androidx.compose.ui.semantics.semantics
 
 internal data class CarLabOptions(val allowCapture: Boolean, val onCaptureChange: (Boolean) -> Unit,
     val reportStatus: String, val reporting: Boolean, val onReport: () -> Unit)
+internal data class ConnectionReportOptions(val status: String, val reporting: Boolean, val onReport: () -> Unit)
 
 @Composable
 internal fun CarLabControls(options: CarLabOptions, state: LabState, active: Boolean) {
     Surface(color = Color(0xff1a242a), shape = RoundedCornerShape(18.dp), border = BorderStroke(1.dp, Color(0xffefca72))) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Android Auto experiment", color = Color(0xffefca72))
-            Text("Park first. Stop regular Varispeed. Disconnect Android Auto → Start here → reconnect Android Auto. Then try −4.", fontSize = 13.sp)
+            Text("Park first. Stop regular Varispeed. Start listening before or after connecting Android Auto, play music, then try −4.", fontSize = 13.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Allow processed audio to be captured", Modifier.weight(1f), fontSize = 13.sp)
                 Switch(checked = options.allowCapture, onCheckedChange = options.onCaptureChange, enabled = !active,
                     modifier = Modifier.semantics { contentDescription = "Allow processed audio to be captured" })
             }
-            Text("For Android Auto; also permits other authorized playback capture. Change while stopped.", fontSize = 11.sp)
+            Text("Enables automatic car routing and permits authorized playback capture. Stop restores the original car route. Change while stopped.", fontSize = 11.sp)
+            if (active) Text(when (state.data.getString("carRouteStatus", "STARTING")) {
+                "REROUTED" -> "Car route adjusted · confirm the pitch effect in the car."
+                "WAITING_FOR_ANDROID_AUTO" -> "Waiting for Android Auto’s music connection."
+                "WAITING_FOR_MUSIC" -> "Car connected · waiting for music."
+                "ERROR", "UNAVAILABLE" -> "Car routing unavailable. Include a connection report if the effect is missing."
+                else -> "Preparing car routing…"
+            }, fontSize = 12.sp)
             if (state.status == "RUNNING") Text(
                 if (state.data.getFloat("inputPeak") > .00001f) "Music is reaching Varispeed; confirm the effect in the car."
                 else "No input signal right now. Music may be paused, or the route may be bypassing Varispeed.", fontSize = 12.sp)

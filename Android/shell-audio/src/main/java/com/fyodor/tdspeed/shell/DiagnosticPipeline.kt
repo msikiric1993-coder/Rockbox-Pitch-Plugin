@@ -27,6 +27,12 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
     private var track: AudioTrack? = null
     private var worker: Thread? = null
     private var varispeed: VarispeedEngine? = null
+    private var carRoute: CarRouteController? = null
+    private var stopRestoreStatus = "NOT_STOPPED"
+    private var stopRestoreDetail = ""
+    fun stopDiagnostics() = Bundle().apply {
+        putString("stopRestoreStatus", stopRestoreStatus); putString("stopRestoreDetail", stopRestoreDetail)
+    }
     private data class Listening(val semitones: Float = 0f, val id: Long = 0, val recenterGeneration: Long = 0)
     @Volatile private var requested = Listening()
     @Volatile private var appliedPitch = 0f
@@ -58,6 +64,13 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
 
     fun start() {
         ShellAttribution.install(context)
+        if (allowCarCapture) {
+            val siblingUids = listOf("com.fyodor.tdspeed.android.debug", "com.fyodor.tdspeed.android.carlab")
+                .filter { it != context.packageName }.mapNotNull { name -> runCatching { context.packageManager.getApplicationInfo(name, 0).uid }.getOrNull() }
+            check(siblingUids.isEmpty() || NativeMixRules.inspect().none { mix -> siblingUids.any { mix.varispeedInputFor(it) } }) {
+                "OTHER_VARISPEED_LISTENING: stop listening in the other Varispeed app first"
+            }
+        }
         NativeBridge.identity() // Verify native loading before suppressing original playback.
         // Refuse before changing routing if a full buffer plus headroom is unavailable.
         // No silent fallback to a smaller history and no disk-backed audio file.
@@ -73,12 +86,13 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
         for (candidate in listOf(AudioFormat.ENCODING_PCM_FLOAT, AudioFormat.ENCODING_PCM_16BIT)) {
             try {
                 val output = openTrack(candidate); track = output
-                val inputPolicy = LoopbackPolicy(context, ownerUid, candidate, FocusObserver()); policy = inputPolicy
+                val inputPolicy = LoopbackPolicy(context, ownerUid, candidate, FocusObserver(trackFocusOwner = allowCarCapture)); policy = inputPolicy
                 val record = inputPolicy.open()
                 encoding = candidate
                 record.startRecording()
                 active.set(true); progressAt = SystemClock.elapsedRealtime()
                 worker = Thread({ transport(record, output, inputPolicy) }, "TDSpeed-stereo-io").also { it.start() }
+                if (allowCarCapture) carRoute = CarRouteController(context, ownerUid, inputPolicy.registrationAddress).also { it.start() }
                 return
             } catch (error: Throwable) {
                 failures.add(error)
@@ -183,6 +197,10 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
 
     fun snapshot() = Bundle().apply {
         putBoolean("allowCarCapture", allowCarCapture)
+        putString("carRouteStatus", carRoute?.status ?: "DISABLED")
+        putString("carRouteDetail", carRoute?.detail.orEmpty())
+        putString("carRouteSourceUids", carRoute?.excluded.orEmpty())
+        putString("carRouteDiscovery", carRoute?.discovery ?: "none")
         putString("outputCapturePolicy", if (allowCarCapture) "ALLOW_CAPTURE_BY_ALL" else "ALLOW_CAPTURE_BY_NONE")
         putString("captureMixAddress", policy?.registrationAddress.orEmpty())
         putString("outputDeviceAddress", outputAddress); putInt("outputDeviceId", outputDeviceId)
@@ -200,6 +218,7 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
         putInt("audioMode", mode); putString("signalStatus", reason)
         putBoolean("focusObserverRegistered", policy?.focusAttached == true)
         putLong("focusEventCount", policy?.focus?.eventCount ?: 0)
+        putFloat("focusAttenuation", policy?.focus?.attenuation ?: 1f)
         putStringArrayList("focusTrace", policy?.focus?.traces() ?: arrayListOf())
     }
 
@@ -216,7 +235,14 @@ internal class DiagnosticPipeline(private val context: Context, private val owne
     }
     private fun closeAudio() {
         var failure: Throwable? = null
+        // Remove our competing primary mix before the last car-rule update triggers rerouting.
+        // In a pre-armed session our mix was registered before Android Auto's mix.
         try { policy?.close() } catch (error: Throwable) { failure = error } finally { policy = null }
+        try { carRoute?.close() } catch (error: Throwable) { failure = failure ?: error } finally {
+            stopRestoreStatus = carRoute?.status ?: "NOT_REQUIRED"
+            stopRestoreDetail = carRoute?.detail.orEmpty()
+            carRoute = null
+        }
         try { track?.release() } catch (error: Throwable) { failure = failure ?: error } finally { track = null }
         failure?.let { throw it }
     }

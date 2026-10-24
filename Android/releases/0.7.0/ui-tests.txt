@@ -1,0 +1,9 @@
+
+com.fyodor.tdspeed.android.CarLabScreenTest:.
+com.fyodor.tdspeed.android.ListeningScreenTest:.
+com.fyodor.tdspeed.android.ResponsiveSliderTest:.
+com.fyodor.tdspeed.android.UnifiedScreenTest:.
+
+Time: 13.534
+
+OK (4 tests)

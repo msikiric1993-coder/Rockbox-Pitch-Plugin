@@ -74,7 +74,7 @@ class BridgeService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                val requestedCarCapture = BuildConfig.CAR_LAB && intent.getBooleanExtra("allowCarCapture", true)
+                val requestedCarCapture = !BuildConfig.CAR_LAB || intent.getBooleanExtra("allowCarCapture", true)
                 startForeground(NOTIFICATION, notification("Listening · tap to open controls"), ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
                 foreground = true
                 executor.execute {

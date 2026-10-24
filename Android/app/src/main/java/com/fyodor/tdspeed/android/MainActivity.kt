@@ -42,13 +42,39 @@ class MainActivity : ComponentActivity() {
             var allowCarCapture by remember { mutableStateOf(preferences.getBoolean("allowCapture", true)) }
             var reporting by remember { mutableStateOf(false) }
             var reportStatus by remember { mutableStateOf("") }
+            val onReport: () -> Unit = {
+                val controller = service
+                if (controller == null) reportStatus = "Wait for the app to connect."
+                else {
+                    reporting = true; reportStatus = ""
+                    controller.routeReport { text, error ->
+                        runOnUiThread {
+                            reporting = false
+                            if (text == null) reportStatus = error ?: "Report unavailable"
+                            else runCatching {
+                                val directory = File(cacheDir, "route-reports").apply { mkdirs() }
+                                directory.listFiles()?.filter { it.name.startsWith("varispeed-route-") && it.extension == "json" }
+                                    ?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
+                                val report = File(directory, "varispeed-route-${System.currentTimeMillis()}.json")
+                                report.writeText(text)
+                                val uri = FileProvider.getUriForFile(this, "$packageName.reports", report)
+                                reportStatus = "Contains device addresses and app/route details, not recorded audio."
+                                if (!isFinishing && !isDestroyed) startActivity(Intent.createChooser(
+                                    Intent(Intent.ACTION_SEND).setType("application/json")
+                                        .putExtra(Intent.EXTRA_STREAM, uri)
+                                        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Connection report"))
+                            }.onFailure { reportStatus = it.message ?: "Could not share report" }
+                        }
+                    }
+                }
+            }
             ListeningScreen(state, service != null,
                 onStart = {
                     withPermission {
                         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
                             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                         startForegroundService(Intent(this, BridgeService::class.java).setAction(BridgeService.ACTION_START)
-                            .putExtra("allowCarCapture", allowCarCapture))
+                            .putExtra("allowCarCapture", if (BuildConfig.CAR_LAB) allowCarCapture else true))
                     }
                 },
                 onStop = { startService(Intent(this, BridgeService::class.java).setAction(BridgeService.ACTION_STOP)) },
@@ -56,32 +82,8 @@ class MainActivity : ComponentActivity() {
                 onRecenter = { service?.listening(LabModel.state.value.data.getFloat("pitchSemitones"), true) },
                 carLab = if (!BuildConfig.CAR_LAB) null else CarLabOptions(allowCarCapture,
                     { allowCarCapture = it; preferences.edit().putBoolean("allowCapture", it).apply() },
-                    reportStatus, reporting, {
-                        val controller = service
-                        if (controller == null) reportStatus = "Wait for the app to connect."
-                        else {
-                            reporting = true; reportStatus = ""
-                            controller.routeReport { text, error ->
-                                runOnUiThread {
-                                    reporting = false
-                                    if (text == null) reportStatus = error ?: "Report unavailable"
-                                    else runCatching {
-                                        val directory = File(cacheDir, "route-reports").apply { mkdirs() }
-                                        directory.listFiles()?.filter { it.name.startsWith("varispeed-route-") && it.extension == "json" }
-                                            ?.sortedByDescending { it.lastModified() }?.drop(3)?.forEach { it.delete() }
-                                        val report = File(directory, "varispeed-route-${System.currentTimeMillis()}.json")
-                                        report.writeText(text)
-                                        val uri = FileProvider.getUriForFile(this, "$packageName.reports", report)
-                                        reportStatus = "Contains device addresses and app/route details, not recorded audio."
-                                        if (!isFinishing && !isDestroyed) startActivity(Intent.createChooser(
-                                            Intent(Intent.ACTION_SEND).setType("application/json")
-                                                .putExtra(Intent.EXTRA_STREAM, uri)
-                                                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "Connection report"))
-                                    }.onFailure { reportStatus = it.message ?: "Could not share report" }
-                                }
-                            }
-                        }
-                    }))
+                    reportStatus, reporting, onReport),
+                connectionReport = ConnectionReportOptions(reportStatus, reporting, onReport))
         }
     }
 

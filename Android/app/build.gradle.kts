@@ -4,7 +4,7 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "com.fyodor.tdspeed.android"
-        minSdk = 33; targetSdk = 36; versionCode = 9; versionName = "0.6.0-car-lab"
+        minSdk = 33; targetSdk = 36; versionCode = 13; versionName = "0.7.0"
         manifestPlaceholders["appLabel"] = "Varispeed"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "x86_64") }

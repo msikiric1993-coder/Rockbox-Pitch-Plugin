@@ -1,9 +1,11 @@
 # Rockbox Pitch Plugin
 
-Android: the [first successful Android baseline](Android/SIMPLE_1G_STATUS.md)
-provides coupled pitch/speed, Original pitch, Re-centre and a 1 GiB RAM buffer.
-Read its Shizuku startup requirements before use. The preserved APK and exact
-validation evidence are in [Android releases](Android/releases/0.4.0-simple-1g/).
+Android: [Varispeed 0.7.0](Android/VARISPEED_0.7.0.md) combines phone/headphone
+listening and automatic Android Auto routing in one app, with coupled pitch/speed,
+Original pitch, Re-centre and a 1 GiB RAM buffer. Shizuku is required; startup
+instructions and validation limits are in the linked guide. The APK, source and
+test receipts are in [Android 0.7.0](Android/releases/0.7.0/). The
+[first successful Android baseline](Android/releases/0.4.0-simple-1g/) is archived.
 
 A Windows listening app and VST3 inspired by Rockbox's pitch control: lower pitch slows the music down; higher pitch speeds it up. The song's length changes too.
 

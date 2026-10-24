@@ -14,6 +14,7 @@ internal object RouteReport {
         putAll(snapshot)
         putString("reportScope", "Routing evidence only; Android Auto playback is not qualified")
         putString("buildFingerprint", Build.FINGERPRINT)
+        putString("bootId", runCatching { java.io.File("/proc/sys/kernel/random/boot_id").readText().trim() }.getOrDefault("unavailable"))
         putLong("capturedAtEpochMs", System.currentTimeMillis())
         val manager = context.getSystemService(AudioManager::class.java)
         val devices = JSONArray()

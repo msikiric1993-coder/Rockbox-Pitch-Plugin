@@ -45,6 +45,7 @@ internal fun ListeningScreen(
     state: LabState, connected: Boolean, onStart: () -> Unit, onStop: () -> Unit,
     onPitch: (Float) -> Unit, onRecenter: () -> Unit,
     carLab: CarLabOptions? = null,
+    connectionReport: ConnectionReportOptions? = null,
 ) {
     MaterialTheme(colorScheme = darkColorScheme(primary = Mint, onPrimary = Background,
         background = Background, surface = Panel, onSurface = Ink, onSurfaceVariant = Muted,
@@ -104,6 +105,10 @@ internal fun ListeningScreen(
                     Text("$status (Pitch effect ${if (listening) "on" else "off"})", color = if (listening) Mint else Red, fontSize = 13.sp)
                 }
                 if (carLab != null) CarLabControls(carLab, state, active)
+                else if (running && state.data.getString("carRouteStatus") == "REROUTED")
+                    Text("Android Auto · routed", color = Muted, fontSize = 11.sp)
+                else if (running && state.data.getString("carRouteStatus") in setOf("ERROR", "UNAVAILABLE"))
+                    Text("Car routing unavailable · see Help", color = Yellow, fontSize = 11.sp)
                 Rack {
                     Text("PITCH & SPEED", color = Muted, fontSize = 11.sp, letterSpacing = 1.5.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -193,7 +198,15 @@ internal fun ListeningScreen(
             }
         }
         if (help) AlertDialog(onDismissRequest = { help = false }, title = { Text("Listening with Varispeed") },
-            text = { Text("Start Shizuku, play music in your source app, then tap Start listening.\n\nKeep Developer options and USB debugging enabled; no cable or PC is needed while Shizuku is running. Start Shizuku again after reboot.\n\nPitch and speed change together. The slider goes from −12 to 0 semitones. Original pitch keeps your delay; Re-centre jumps near live. The two waveforms illustrate the same segment: the lower one stretches in time as you slow playback. They are not live audio. Buffer fill is the accumulated delay divided by the full history capacity.\n\nThe 1 GiB buffer is held in memory. Stop clears it. Android Auto support is still being investigated.") },
+            text = { Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Start Shizuku, play music, then tap Start listening. The same button works with your phone, headphones and Android Auto. You can start before or after connecting the car. Stop returns music to its ordinary route.\n\nKeep Developer options and USB debugging enabled; no cable or PC is needed while Shizuku is running. Start Shizuku again after reboot.\n\nPitch and speed change together. Original pitch keeps your delay; Re-centre jumps near live. The waveforms illustrate how the same segment stretches; they are not live audio.\n\nThe 1 GiB buffer is held in memory. Stop clears it. Processed playback is available to authorized Android audio capture for car routing.")
+                connectionReport?.let { report ->
+                    OutlinedButton(onClick = report.onReport, enabled = !report.reporting, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+                        Text(if (report.reporting) "Collecting report…" else "Share connection report")
+                    }
+                    if (report.status.isNotEmpty()) Text(report.status, fontSize = 12.sp)
+                }
+            } },
             confirmButton = { TextButton(onClick = { help = false }) { Text("Got it") } })
     }
 }
